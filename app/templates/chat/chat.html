@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col h-screen bg-gray-50">
+    <!-- Chat Header -->
+    <div class="bg-white shadow-sm p-4 border-b">
+        <div class="flex items-center space-x-4">
+            <div class="flex-1">
+                <h1 class="text-xl font-semibold">Chat with {{ recipient.username }}</h1>
+                <p class="text-sm text-gray-500">
+                    {% if recipient.last_seen %}
+                    Last seen {{ recipient.last_seen.strftime('%Y-%m-%d %H:%M') }}
+                    {% else %}
+                    Never seen
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Messages -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-messages">
+        {% for message in messages %}
+        <div class="flex {% if message.is_current_user %}justify-end{% else %}justify-start{% endif %}">
+            <div
+                class="max-w-md p-4 rounded-lg {% if message.is_current_user %}bg-blue-500 text-white{% else %}bg-white shadow{% endif %}">
+                <!-- File Display -->
+                {% if message.is_file and message.file_path %}
+                <div class="mb-2">
+                    {% set file_ext = message.file_path.split('.')[-1] | lower %}
+                    {% if file_ext in ['jpg', 'jpeg', 'png', 'gif'] %}
+                    <a href="{{ url_for('chat.download_file', message_id=message.id) }}" class="lightbox-trigger"
+                        data-title="Sent {{ message.formatted_timestamp }}">
+
+                        <img src="{{ url_for('chat.download_file', message_id=message.id) }}?preview=1"
+                            class="max-w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                            alt="Uploaded file">
+                    </a>
+                    {% else %}
+                    <div class="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg">
+                        <i class="fas fa-file text-xl"></i>
+                        <div class="flex-1 truncate">
+                            <span>{{ message.formatted_timestamp }}</span>
+                            <a href="{{ url_for('chat.download_file', message_id=message.id) }}"
+                                class="text-blue-500 hover:text-blue-700 ml-2">
+                                <i class="fas fa-download mr-1"></i>Download
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                <!-- Message Content -->
+                {% if message.body %}
+                <p class="break-words">{{ message.body }}</p>
+                {% endif %}
+                <div
+                    class="mt-2 flex items-center justify-between text-xs {% if message.is_current_user %}text-blue-100{% else %}text-gray-500{% endif %}">
+                    <span>{{ message.formatted_timestamp }}</span>
+                    {% if not message.is_current_user and not message.signature_valid and message.body %}
+                    <i class="fas fa-exclamation-triangle text-red-500 ml-2" title="Signature verification failed"></i>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+
+    <!-- Message Form -->
+    <div class="border-t p-4 bg-white">
+        <form id="message-form" method="POST" action="{{ url_for('chat.chat', user_id=recipient.id) }}"
+            enctype="multipart/form-data">
+            {{ form.hidden_tag() }}
+            <div class="flex flex-col space-y-2">
+                <!-- File Preview -->
+                <div id="file-preview" class="hidden flex items-center space-x-2 p-2 bg-gray-100 rounded-lg"></div>
+                <!-- Message Input and Buttons -->
+                <div class="flex space-x-2">
+                    {{ form.message(class="flex-1 p-2 border rounded-lg focus:outline-none focus:border-blue-500",
+                    placeholder="Type your message...") }}
+                    <!-- Hidden File Input -->
+                    {{ form.file_data(class="hidden", id="file-input") }}
+                    <!-- Custom File Button -->
+                    <label for="file-input"
+                        class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg cursor-pointer flex items-center space-x-1 transition-colors duration-200">
+                        <i class="fas fa-paperclip"></i>
+                        <span>Attach</span>
+                    </label>
+                    <button type="submit"
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                        Send
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- JavaScript for File Preview and Lightbox -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Message refresh function
+        function loadMessages() {
+            console.log('Fetching messages for user {{ recipient.id }}');
+            fetch(`/get_messages/{{ recipient.id }}`)
+                .then(response => response.json())
+                .then(messages => {
+                    console.log('Messages received:', messages.length, 'messages');
+                    const chatMessages = document.getElementById('chat-messages');
+                    chatMessages.innerHTML = '';
+
+                    messages.forEach(msg => {
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = `flex ${msg.is_current_user ? 'justify-end' : 'justify-start'} mb-4`;
+
+                        let fileContent = '';
+                        if (msg.is_file && msg.file_url && msg.filename) {
+                            const fileExt = msg.filename.split('.').pop().toLowerCase();
+                            if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
+                                fileContent = `
+            <div class="mb-2">
+                <a href="${msg.file_url}" 
+                   class="lightbox-trigger" 
+                   data-title="Sent at ${new Date(msg.timestamp).toLocaleString()}">
+                    <img src="${msg.file_url}?preview=1" 
+                         class="max-w-full h-48 object-cover rounded-lg cursor-pointer">
+                </a>
+            </div>
+        `;
+                            } else {
+                                fileContent = `
+            <div class="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg mb-2">
+                <i class="fas fa-file text-xl"></i>
+                <div class="flex-1 truncate">
+                    <span class="font-medium">${msg.filename}</span>
+                    <a href="${msg.file_url}" 
+                       class="text-blue-500 hover:text-blue-700 ml-2">
+                        <i class="fas fa-download mr-1"></i>Download
+                    </a>
+                </div>
+            </div>
+        `;
+                            }
+                        }
+                        messageDiv.innerHTML = `
+                            <div class="max-w-md p-4 rounded-lg ${msg.is_current_user ? 'bg-blue-500 text-white' : 'bg-white shadow'}">
+                                ${fileContent}
+                                ${msg.body ? `<p class="break-words">${msg.body}</p>` : ''}
+                                <div class="mt-2 flex items-center justify-between text-xs ${msg.is_current_user ? 'text-blue-100' : 'text-gray-500'}">
+                                    <span>${new Date(msg.js_timestamp).toLocaleString()}</span>
+                                    ${!msg.is_current_user && !msg.signature_valid && msg.body ? `
+                                        <i class="fas fa-exclamation-triangle text-red-500 ml-2" title="Signature verification failed"></i>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+
+                        chatMessages.appendChild(messageDiv);
+                    });
+
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                })
+                .catch(error => {
+                    console.error('Error loading messages:', error);
+                });
+        }
+
+        // Lightbox click handler
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.lightbox-trigger')) {
+                e.preventDefault();
+                const link = e.target.closest('a');
+                const imgSrc = link.href;
+                const title = link.dataset.title || '';
+
+                const lightboxHTML = `
+                    <div class="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
+                        <div class="relative max-w-4xl max-h-full">
+                            <button class="absolute top-4 right-4 text-white text-4xl z-50 hover:text-gray-300" 
+                                    onclick="this.parentElement.parentElement.remove()">×</button>
+                            <img src="${imgSrc}" 
+                                 class="max-w-full max-h-screen cursor-zoom-out" 
+                                 alt="Enlarged preview"
+                                 onclick="event.stopPropagation()">
+                            ${title ? `<div class="absolute bottom-4 left-4 text-white text-sm">${title}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+
+                document.body.insertAdjacentHTML('beforeend', lightboxHTML);
+            }
+        });
+
+        // File preview handler
+        const fileInput = document.getElementById('file-input');
+        const filePreview = document.getElementById('file-preview');
+        fileInput.addEventListener('change', function () {
+            console.log('File input changed:', this.files);
+            filePreview.innerHTML = '';
+            filePreview.classList.add('hidden');
+
+            if (this.files && this.files.length > 0) {
+                const file = this.files[0];
+                const fileExt = file.name.split('.').pop().toLowerCase();
+                console.log('Selected file:', { name: file.name, extension: fileExt, size: file.size });
+
+                if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        filePreview.innerHTML = `
+                            <div class="flex items-center space-x-2">
+                                <img src="${e.target.result}" class="h-16 object-cover rounded" alt="File preview">
+                                <span class="text-sm text-gray-600 truncate">${file.name}</span>
+                                <button type="button" class="text-red-500 hover:text-red-700" id="clear-file">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        `;
+                        filePreview.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    filePreview.innerHTML = `
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-file text-xl"></i>
+                            <span class="text-sm text-gray-600 truncate">${file.name}</span>
+                            <button type="button" class="text-red-500 hover:text-red-700" id="clear-file">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    `;
+                    filePreview.classList.remove('hidden');
+                }
+
+                // Clear file input
+                document.getElementById('clear-file').addEventListener('click', () => {
+                    console.log('Clearing file input');
+                    fileInput.value = '';
+                    filePreview.innerHTML = '';
+                    filePreview.classList.add('hidden');
+                });
+            } else {
+                console.warn('No file selected');
+            }
+        });
+
+        // Form submission handler
+        const messageForm = document.getElementById('message-form');
+        messageForm.addEventListener('submit', function (e) {
+            const messageInput = this.message;
+            const fileInput = document.getElementById('file-input');
+            console.log('Form submission:', {
+                message: messageInput.value,
+                file: fileInput.files.length > 0 ? fileInput.files[0].name : null
+            });
+
+            if (!messageInput.value.trim() && (!fileInput.files || fileInput.files.length === 0)) {
+                console.warn('Form blocked: no message or file');
+                e.preventDefault();
+                alert('Please enter a message or select a file');
+            } else {
+                console.log('Form valid, proceeding with submission');
+                // Clear preview but keep file for submission
+                filePreview.classList.add('hidden');
+            }
+        });
+
+        // Auto-refresh messages
+        setInterval(loadMessages, 2000);
+        loadMessages();
+    });
+</script>
+
+<script>
+    console.log("Raw timestamp:", msg.js_timestamp);
+    console.log("Date object:", new Date(msg.js_timestamp));
+</script>
+
+<style>
+    .lightbox-trigger img {
+        transition: transform 0.2s ease-in-out;
+    }
+
+    .lightbox-trigger:hover img {
+        transform: scale(1.02);
+    }
+
+    .cursor-zoom-out {
+        cursor: zoom-out;
+    }
+
+    .fixed {
+        backdrop-filter: blur(5px);
+    }
+</style>
+{% endblock %}

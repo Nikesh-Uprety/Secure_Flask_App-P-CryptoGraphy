@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow-md p-6">
+    <h1 class="text-2xl font-bold mb-6">Select a user to chat with</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for user in users %}
+        <a href="{{ url_for('chat.chat', user_id=user.id) }}"
+            class="block p-4 border rounded-lg hover:bg-gray-50 transition duration-200">
+            <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+                    {{ user.username[0].upper() }}
+                </div>
+                <div>
+                    <h3 class="font-semibold">{{ user.username }}</h3>
+                    <p class="text-sm text-gray-500">{{ user.email }}</p>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
