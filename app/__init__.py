@@ -19,7 +19,7 @@ def create_app(config_class=Config):
     # Security headers
     # Talisman(
     #     app,
-    #     force_https=false,
+    #     force_https=False,
     #     strict_transport_security=True,
     #     session_cookie_secure=True,
     #     content_security_policy=app.config['CSP'],

@@ -1,9 +1,23 @@
-/* Custom styles to complement Tailwind */
-#chat-messages {
-    scrollbar-width: thin;
-    scrollbar-color: #3b82f6 #f1f1f1;
+/* Base Styles */
+body {
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
 }
 
+/* Chat Layout */
+.chat-container {
+    display: flex;
+    height: 100vh;
+}
+
+#chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 20px;
+}
+
+/* Scrollbar */
 #chat-messages::-webkit-scrollbar {
     width: 8px;
 }
@@ -22,16 +36,142 @@
     background: #2563eb;
 }
 
-.alert {
-    animation: fadeIn 0.5s;
+/* Image Preview */
+.image-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.5rem;
 }
 
-@keyframes fadeIn {
-    from {
+.image-container img {
+    transition: transform 0.3s ease;
+    width: 100%;
+    height: 12rem;
+    object-fit: cover;
+}
+
+.image-container:hover img {
+    transform: scale(1.02);
+}
+
+/* Download Button */
+.download-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 2rem;
+    height: 2rem;
+    background-color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    opacity: 1 !important;
+    z-index: 10;
+}
+
+.download-btn:hover {
+    transform: scale(1.1);
+    background-color: #f3f4f6;
+}
+
+.download-btn i {
+    color: #4b5563;
+}
+
+/* Toast Notification */
+.toast {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    background-color: #1f2937;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    animation: fadeInOut 3s ease-in-out forwards;
+    z-index: 50;
+}
+
+@keyframes fadeInOut {
+    0% {
         opacity: 0;
+        transform: translateY(10px);
     }
 
-    to {
+    10% {
         opacity: 1;
+        transform: translateY(0);
     }
+
+    90% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
+
+/* Scroll to Bottom Button */
+#scroll-to-bottom {
+    position: fixed;
+    bottom: 6rem;
+    right: 1.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    background-color: #3b82f6;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    opacity: 0;
+    z-index: 40;
+}
+
+#scroll-to-bottom:hover {
+    transform: scale(1.1);
+    background-color: #2563eb;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    #scroll-to-bottom {
+        bottom: 5rem;
+        right: 1rem;
+    }
+
+    .image-container img {
+        height: 10rem;
+    }
+}
+
+/* Message Bubbles */
+.message-bubble {
+    max-width: 80%;
+    word-wrap: break-word;
+}
+
+/* File Preview */
+#file-preview {
+    transition: all 0.3s ease;
+}
+
+/* Form Elements */
+#message-form input[type="text"],
+#message-form textarea {
+    transition: border-color 0.2s ease;
+}
+
+#message-form input[type="text"]:focus,
+#message-form textarea:focus {
+    border-color: #3b82f6;
+    outline: none;
 }

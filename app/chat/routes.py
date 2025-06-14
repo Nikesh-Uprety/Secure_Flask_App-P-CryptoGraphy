@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file, send_from_directory
 from flask_login import current_user, login_required
 from app import db
 from app.models import User, Message
@@ -105,8 +105,8 @@ def chat(user_id):
             'id': msg.id,
             'sender_id': msg.sender_id,
             'body': decrypted_body,
-            'formatted_timestamp': msg.formatted_timestamp,  # Using model property
-            'js_timestamp': msg.js_timestamp,  # For JavaScript
+            'formatted_timestamp': msg.formatted_timestamp,
+            'js_timestamp': msg.js_timestamp,
             'is_file': msg.is_file,
             'file_path': msg.file_path,
             'signature_valid': signature_valid,
@@ -117,7 +117,8 @@ def chat(user_id):
                          title=f'Chat with {recipient.username}',
                          form=form,
                          recipient=recipient,
-                         messages=decrypted_messages)
+                         messages=decrypted_messages,
+                         users=User.query.filter(User.id != current_user.id).all())
 
 @chat_bp.route('/get_messages/<int:user_id>')
 @login_required
@@ -167,10 +168,14 @@ def download_file(message_id):
         flash('No file associated with this message.', 'error')
         return redirect(url_for('chat.chat', user_id=message.recipient_id))
     
-    file_path = os.path.normpath(os.path.join(
-        current_app.config['UPLOAD_FOLDER'],
-        message.file_path.replace('/', os.sep).replace('\\', os.sep)
-    ))
+    # Normalize path and prevent directory traversal
+    safe_path = os.path.normpath(message.file_path)
+    if os.path.isabs(safe_path) or '..' in safe_path:
+        current_app.logger.error(f"Invalid file path: {message.file_path}")
+        flash('Invalid file path.', 'error')
+        return redirect(url_for('chat.chat', user_id=message.recipient_id))
+    
+    file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], safe_path)
     
     if not os.path.exists(file_path):
         current_app.logger.error(f"File not found: {file_path}")
@@ -184,7 +189,7 @@ def download_file(message_id):
             flash('Sender information unavailable.', 'error')
             return redirect(url_for('chat.chat', user_id=message.recipient_id))
         try:
-            if not verify_uploaded_file(message.file_path, message.file_signature, sender.get_public_key()):
+            if not verify_uploaded_file(safe_path, message.file_signature, sender.get_public_key()):
                 current_app.logger.error(f"File signature verification failed for {file_path}")
                 flash('File signature verification failed.', 'error')
                 return redirect(url_for('chat.chat', user_id=message.recipient_id))
@@ -198,10 +203,26 @@ def download_file(message_id):
         mime_type = 'application/octet-stream'
     
     current_app.logger.info(f"Serving file: {file_path} with MIME type: {mime_type}")
+    
+    # Handle preview vs download
+    if 'preview' in request.args and request.args['preview'] == '1':
+        if mime_type.startswith('image/'):
+            try:
+                return send_file(file_path, mimetype=mime_type)
+            except Exception as e:
+                current_app.logger.error(f"Error serving preview for {file_path}: {str(e)}")
+                flash('Error previewing file.', 'error')
+                return redirect(url_for('chat.chat', user_id=message.recipient_id))
+        else:
+            flash('Preview not available for this file type.', 'info')
+            return redirect(url_for('chat.chat', user_id=message.recipient_id))
+    
+    # For PDFs and other files, force download
     try:
         return send_file(
             file_path,
-            as_attachment=False,
+            as_attachment=True,
+            download_name=os.path.basename(file_path),
             mimetype=mime_type
         )
     except Exception as e:
