@@ -59,14 +59,15 @@
                         {% set file_ext = message.file_path.split('.')[-1] | lower %}
                         {% if file_ext in ['jpg', 'jpeg', 'png', 'gif'] %}
                         <div class="relative">
-                            <img src="{{ url_for('chat.download_file', message_id=message.id) }}?preview=1"
-                                class="max-w-full h-48 object-cover rounded-lg cursor-pointer" alt="Uploaded file"
-                                onclick="openImagePreview(this.src)">
-                            <a href="{{ url_for('chat.download_file', message_id=message.id) }}?download=1"
+                            <img src="{{ url_for('chat.preview_file', message_id=message.id) }}"
+                                class="max-w-full h-48 object-cover rounded-lg cursor-pointer" onclick="openImagePreview(this.src)">
+                            
+                            <a href="{{ url_for('chat.download_file', message_id=message.id) }}"
                                 class="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-md hover:bg-gray-100"
                                 download>
                                 <i class="fas fa-download text-gray-800"></i>
                             </a>
+                       
                         </div>
                         {% else %}
                         <div class="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg">
