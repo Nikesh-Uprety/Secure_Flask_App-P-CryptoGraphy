@@ -6,6 +6,9 @@ from app.models import User, Message
 from app.chat.forms import MessageForm
 from app.auth.utils import encrypt_message, decrypt_message, sign_data, verify_signature
 from app.chat.utils import save_file, generate_file_signature, verify_uploaded_file
+import google.generativeai as genai
+from flask import jsonify
+
 import os
 import mimetypes
 
@@ -188,6 +191,141 @@ def preview_file(message_id):
 
     current_app.logger.info(f"Previewing file: {file_path} with MIME: {mime_type}")
     return send_file(file_path, mimetype=mime_type)
+
+
+@chat_bp.route("/niku-ai", methods=["POST"])
+@login_required
+def ask_nikugpt():
+    """Handle AI assistant requests using Gemini 1.5 Flash API"""
+    try:
+        # Validate request
+        data = request.get_json()
+        if not data:
+            current_app.logger.error("No JSON data received")
+            return jsonify({"reply": "Invalid request format"}), 400
+
+        user_message = data.get("message")
+        if not user_message or not isinstance(user_message, str):
+            current_app.logger.error(
+                f"Invalid message received: {user_message}")
+            return jsonify({"reply": "Please provide a valid message"}), 400
+
+        # Configure Gemini
+        api_key = current_app.config["GEMINI_API_KEY"]
+        if not api_key:
+            current_app.logger.error("Missing Gemini API key")
+            return jsonify({"reply": "AI service is not configured properly"}), 500
+
+        genai.configure(api_key=api_key)
+
+        # Model configuration
+        generation_config = {
+            "temperature": 0.7,
+            "top_p": 1,
+            "top_k": 32,
+            "max_output_tokens": 2048,
+        }
+
+        safety_settings = [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+        ]
+
+        # Initialize model with latest Gemini 1.5 Flash
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            generation_config=generation_config,
+            safety_settings=safety_settings
+        )
+
+        # Prepare messages with proper content structure
+        messages = [{"role": "user", "parts": [{"text": user_message}]}]
+
+        # Enhanced context about the app's security architecture
+        app_context = """
+        [System Context] You are an AI assistant for a secure chat application with these security features:
+        
+        **End-to-End Encryption**:
+        - Messages encrypted with AES-256 using unique per-message symmetric keys
+        - Symmetric keys encrypted with recipients' RSA-2048 public keys
+        - Decryption requires recipient's private key
+        
+        **Digital Signatures**:
+        - All messages signed with sender's private key
+        - Signature verification using sender's public key
+        - File uploads also signed and verified
+        
+        **PKI Integration**:
+        - Unique RSA-2048 key pair per user at registration
+        - Private keys stored securely in database (HSMs recommended for production)
+        
+        **Secure Authentication**:
+        - Password hashing with bcrypt
+        - Secure session management
+        - CSRF protection
+        
+        **Transport Security**:
+        - HTTPS enforcement
+        - Security headers (CSP, HSTS)
+        - SameSite cookies
+        
+        **File Upload Security**:
+        - File type validation
+        - Secure filename handling
+        - Digital signatures for uploaded files
+        
+        **Backend Stack**:
+        - Flask backend with SQLAlchemy ORM
+        - Google Gemini AI integration
+        - RSA/AES hybrid cryptosystem
+        """
+
+        # Add context for security/tech-related queries
+        security_keywords = [
+            "app", "application", "secure", "encryption", "flask",
+            "aes", "rsa", "signature", "key", "cryptography",
+            "security", "pki", "authentication", "https", "file",
+            "decrypt", "encrypt", "bcrypt", "csrf", "hsts", "csp"
+        ]
+
+        if any(kw in user_message.lower() for kw in security_keywords):
+            # Insert context as first message in conversation
+            messages.insert(
+                0, {"role": "user", "parts": [{"text": app_context}]})
+
+        # Generate response with correct content structure
+        response = model.generate_content(messages)
+
+        if not response.text:
+            current_app.logger.error("Empty response from Gemini API")
+            return jsonify({"reply": "I couldn't generate a response. Please try again."}), 500
+
+        current_app.logger.info(
+            f"AI response generated for query: {user_message}")
+        return jsonify({"reply": response.text})
+
+    except genai.types.BlockedPromptException as e:
+        current_app.logger.warning(f"Blocked prompt: {str(e)}")
+        return jsonify({"reply": "I can't respond to that request due to content safety restrictions."}), 400
+
+    except Exception as e:
+        current_app.logger.error(f"Gemini API error: {str(e)}", exc_info=True)
+        return jsonify({"reply": "I'm having technical difficulties. Please try again later."}), 500
+
 
 @chat_bp.route('/download/<int:message_id>')
 @login_required

@@ -6,46 +6,254 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock %} - SecureChat</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <!-- Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    {% block head %}{% endblock %}
 </head>
 
-<body class="bg-gray-100 flex flex-col min-h-screen">
-    <header class="bg-blue-600 text-white p-4">
+<body class="bg-gray-50 flex flex-col min-h-screen">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 shadow-lg">
         <div class="container mx-auto flex justify-between items-center">
-            <a href="{{ url_for('chat.index') }}" class="text-2xl font-bold hover:underline">SecureChat</a>
-            <nav>
+            <a href="{{ url_for('chat.index') }}" class="text-2xl font-bold flex items-center">
+                <i class="fas fa-lock mr-2"></i>SecureChat
+            </a>
+            <nav class="flex items-center space-x-6">
                 {% if current_user.is_authenticated %}
-                <span>Hello, {{ current_user.username }}</span>
-                <a href="{{ url_for('auth.logout') }}" class="ml-4 hover:underline">Logout</a>
+                <span class="hidden md:inline-flex items-center">
+                    <i class="fas fa-user-circle mr-2"></i> {{ current_user.username }}
+                </span>
+                <a href="{{ url_for('auth.logout') }}" class="hover:text-blue-200 transition-colors flex items-center">
+                    <i class="fas fa-sign-out-alt mr-1"></i> Logout
+                </a>
                 {% else %}
-                <a href="{{ url_for('auth.login') }}" class="mr-4 hover:underline">Login</a>
-                <a href="{{ url_for('auth.register') }}" class="hover:underline">Register</a>
+                <a href="{{ url_for('auth.login') }}" class="hover:text-blue-200 transition-colors flex items-center">
+                    <i class="fas fa-sign-in-alt mr-1"></i> Login
+                </a>
+                <a href="{{ url_for('auth.register') }}"
+                    class="hover:text-blue-200 transition-colors flex items-center">
+                    <i class="fas fa-user-plus mr-1"></i> Register
+                </a>
                 {% endif %}
             </nav>
         </div>
     </header>
 
-    <main class="container mx-auto flex-grow p-4">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        {% for category, message in messages %}
-        <div class="bg-{{ 'green' if category == 'success' else 'red' }}-100 border-{{ 'green' if category == 'success' else 'red' }}-400 text-{{ 'green' if category == 'success' else 'red' }}-700 px-4 py-3 rounded relative mb-4"
-            role="alert">
+    <!-- Notification System -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="fixed top-4 right-4 z-50 transition-all duration-300 transform translate-x-full" id="notification">
+        <div
+            class="bg-{{ 'green' if category == 'success' else 'red' }}-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center">
+            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }} mr-2"></i>
             {{ message }}
         </div>
-        {% endfor %}
-        {% endif %}
-        {% endwith %}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
 
+    <main class="container mx-auto flex-grow p-4">
         {% block content %}{% endblock %}
     </main>
 
+    <!-- NikuGPT Activation Button (just above the footer) -->
+    {% if current_user.is_authenticated %}
+    <div class="flex justify-end w-full">
+        <button id="nikugpt-btn"
+            class="mb-6 mr-6 bg-gradient-to-r from-blue-400 to-indigo-500 text-white p-4 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center z-40 text-2xl"
+            title="Ask NikuGPT">
+            🧠
+        </button>
+    </div>
+    {% endif %}
+
     <footer class="bg-gray-800 text-white text-center p-4 mt-8">
         <p>© Nikesh-Uprety 2025 SecureChat. All rights reserved.</p>
-        <p class="text-sm">Messages are end-to-end encrypted. Your privacy is our priority.</p>
+        <p class="text-sm text-gray-400 mt-1">Messages are end-to-end encrypted. Your privacy is our priority.</p>
     </footer>
 
-    {% block scripts %}{% endblock %}
+    <!-- NikuGPT Chatbox -->
+    <div id="nikugpt-chatbox" class="nikugpt-hidden">
+        <div class="nikugpt-header flex justify-between items-center">
+            <span class="nikugpt-title flex items-center text-lg font-semibold">
+                <span class="text-2xl mr-2">🧠</span> NikuGPT Assistant
+            </span>
+            <div>
+                <button class="nikugpt-control nikugpt-maximize" title="Maximize">🗖</button>
+                <button class="nikugpt-control nikugpt-close" title="Close">❌</button>
+            </div>
+        </div>
+        <div class="nikugpt-messages" id="nikugpt-messages">
+            <!-- Welcome message and suggestions -->
+            <div class="nikugpt-message ai">
+                <div class="nikugpt-welcome">
+                    <h4>🔐 Welcome to NikuGPT Security Assistant</h4>
+                    <p>I can help you understand this app's security features. Try these questions:</p>
+                </div>
+            </div>
+            <!-- Suggestion buttons -->
+            <div class="nikugpt-suggestions">
+                <button class="nikugpt-suggestion-btn" data-prompt="How does this secure chat app work?">
+                    <i class="fas fa-comments mr-2"></i> How does this secure chat app work?
+                </button>
+                <button class="nikugpt-suggestion-btn" data-prompt="What security technologies are used in this app?">
+                    <i class="fas fa-shield-alt mr-2"></i> What security technologies are used in this app?
+                </button>
+                <button class="nikugpt-suggestion-btn" data-prompt="How are messages encrypted in this app?">
+                    <i class="fas fa-lock mr-2"></i> How are messages encrypted in this app?
+                </button>
+            </div>
+        </div>
+        <div class="nikugpt-input-area">
+            <textarea id="nikugpt-input" class="nikugpt-input" placeholder="Ask about security features..."
+                rows="2"></textarea>
+            <div class="flex justify-end mt-2">
+                <button id="nikugpt-send-btn" class="nikugpt-send-btn flex items-center">
+                    <span class="mr-1">Send</span> <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% block scripts %}
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // Notification animation
+            const notification = document.getElementById("notification");
+            if (notification) {
+                setTimeout(() => {
+                    notification.classList.remove("translate-x-full");
+                    setTimeout(() => {
+                        notification.classList.add("translate-x-full");
+                    }, 3000);
+                }, 100);
+            }
+
+            // --- NikuGPT Button & Chatbox Logic ---
+            const btn = document.getElementById('nikugpt-btn');
+            const box = document.getElementById('nikugpt-chatbox');
+            const maximize = document.querySelector('.nikugpt-maximize');
+            const closeBtn = document.querySelector('.nikugpt-close');
+            const sendBtn = document.getElementById('nikugpt-send-btn');
+            const input = document.getElementById('nikugpt-input');
+            const messages = document.getElementById('nikugpt-messages');
+            const suggestionBtns = document.querySelectorAll('.nikugpt-suggestion-btn');
+
+            let isMaximized = false;
+
+            function showChatbox() {
+                box.classList.remove('nikugpt-hidden');
+                box.classList.add('nikugpt-active', 'fadeInUp');
+                setTimeout(() => box.classList.remove('fadeInUp'), 400);
+            }
+
+            function hideChatbox() {
+                box.classList.remove('nikugpt-active', 'nikugpt-maximized');
+                box.classList.add('nikugpt-hidden');
+                document.body.classList.remove('nikugpt-blur');
+                isMaximized = false;
+            }
+
+            function maximizeChatbox() {
+                isMaximized = !isMaximized;
+                box.classList.toggle('nikugpt-maximized', isMaximized);
+                document.body.classList.toggle('nikugpt-blur', isMaximized);
+            }
+
+            // Event listeners
+            if (btn) btn.onclick = showChatbox;
+            if (closeBtn) closeBtn.onclick = hideChatbox;
+            if (maximize) maximize.onclick = maximizeChatbox;
+
+            // Suggestion button handlers
+            suggestionBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const prompt = btn.getAttribute('data-prompt');
+                    input.value = prompt;
+                    sendMessage(prompt);
+                });
+            });
+
+            // Send message handler
+            if (sendBtn) {
+                sendBtn.onclick = () => {
+                    const text = input.value.trim();
+                    if (text) {
+                        sendMessage(text);
+                        input.value = '';
+                    }
+                };
+            }
+
+            // Enter key handler
+            if (input) {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendBtn.click();
+                    }
+                });
+            }
+
+            function sendMessage(text) {
+                // Add user message
+                addMessage(text, 'user');
+
+                // Show typing indicator
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'nikugpt-message ai nikugpt-typing';
+                typingDiv.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Thinking...';
+                messages.appendChild(typingDiv);
+                messages.scrollTop = messages.scrollHeight;
+
+                // Send to Flask backend
+                fetch("/niku-ai", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ message: text })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Remove typing indicator
+                        messages.removeChild(typingDiv);
+
+                        // Add AI response with markdown rendering
+                        addMessage(data.reply || "Sorry, I couldn't process that request.", 'ai');
+                    })
+                    .catch(error => {
+                        // Remove typing indicator
+                        messages.removeChild(typingDiv);
+
+                        // Add error message
+                        addMessage("I'm experiencing technical difficulties. Please try again later.", 'ai');
+                        console.error('Error:', error);
+                    });
+            }
+
+            function addMessage(content, sender) {
+                const div = document.createElement('div');
+                div.className = 'nikugpt-message ' + sender;
+
+                if (sender === 'ai') {
+                    // Render markdown for AI responses
+                    div.innerHTML = marked.parse(content);
+                } else {
+                    // Plain text for user messages
+                    div.textContent = content;
+                }
+
+                messages.appendChild(div);
+                messages.scrollTop = messages.scrollHeight;
+            }
+        });
+    </script>
+    {% endblock %}
 </body>
 
 </html>

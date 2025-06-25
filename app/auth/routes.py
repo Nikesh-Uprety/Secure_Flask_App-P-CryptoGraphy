@@ -13,23 +13,25 @@ auth_bp = Blueprint('auth', __name__)
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('chat.index'))
-    
+
     form = RegistrationForm()
     if form.validate_on_submit():
         user = User(username=form.username.data, email=form.email.data)
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
+
         flash('Your account has been created! You can now log in.', 'success')
         return redirect(url_for('auth.login'))
-    
+
     return render_template('auth/register.html', title='Register', form=form)
+
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('chat.index'))
-    
+
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
@@ -43,13 +45,16 @@ def login():
             return redirect(next_page) if next_page else redirect(url_for('chat.index'))
         else:
             flash('Login unsuccessful. Please check email and password.', 'danger')
-    
+
     return render_template('auth/login.html', title='Login', form=form)
+
+
 @auth_bp.before_request
 def before_request():
     if current_user.is_authenticated:
         current_user.last_seen = datetime.now(timezone.utc)
         db.session.commit()
+
 
 @auth_bp.route('/logout')
 @login_required

@@ -1,20 +1,21 @@
 {% extends "base.html" %}
-
 {% block content %}
-<div class="bg-white rounded-lg shadow-md p-6 max-w-4xl mx-auto">
-    <h1 class="text-2xl font-bold mb-6">Select a user to chat with</h1>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+<div class="max-w-6xl mx-auto px-4">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Connect with Users</h1>
+        <p class="text-gray-600">Select a user to start a secure conversation</p>
+    </div>
+    <div class="user-card-grid">
         {% for user in users %}
-        <a href="{{ url_for('chat.chat', user_id=user.id) }}"
-            class="block p-4 border rounded-lg hover:bg-gray-50 transition duration-200">
-            <div class="flex items-center space-x-4">
-                <div class="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+        <a href="{{ url_for('chat.chat', user_id=user.id) }}" class="user-card-link">
+            <div class="user-card-content">
+                <div class="user-avatar">
                     {{ user.username[0].upper() }}
                 </div>
-                <div>
-                    <h3 class="font-semibold">{{ user.username }}</h3>
-                    <p class="text-sm text-gray-500 truncate">{{ user.email }}</p>
+                <div class="user-card-info">
+                    <h3>{{ user.username }}</h3>
+                    <p>{{ user.email }}</p>
+                    <span class="user-card-badge"><i class="fas fa-shield-alt mr-1"></i> Secured</span>
                 </div>
             </div>
         </a>
