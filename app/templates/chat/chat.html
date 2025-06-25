@@ -3,21 +3,21 @@
 {% block content %}
 <div class="flex h-screen bg-gray-50">
     <!-- Sidebar -->
-    <div class="w-64 bg-white border-r hidden md:block">
+    <div class="w-64 bg-white border-r hidden md:block chat-sidebar">
         <div class="p-4 border-b">
-            <h2 class="text-lg font-semibold">Chats</h2>
+            <h2 class="text-lg font-semibold text-gray-800">Chats</h2>
         </div>
         <div class="overflow-y-auto h-full">
             {% for user in users %}
             <a href="{{ url_for('chat.chat', user_id=user.id) }}"
-                class="block p-3 hover:bg-gray-100 border-b {% if user.id == recipient.id %}bg-blue-50{% endif %}">
+                class="block p-3 hover:bg-gray-100 border-b transition-colors duration-200 {% if user.id == recipient.id %}bg-blue-50 border-l-4 border-l-blue-500{% endif %}">
                 <div class="flex items-center space-x-3">
                     <div
-                        class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+                        class="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md">
                         {{ user.username[0].upper() }}
                     </div>
                     <div>
-                        <h3 class="font-medium">{{ user.username }}</h3>
+                        <h3 class="font-medium text-gray-800">{{ user.username }}</h3>
                         <p class="text-xs text-gray-500 truncate">{{ user.email }}</p>
                     </div>
                 </div>
@@ -29,14 +29,20 @@
     <!-- Main Chat Area -->
     <div class="flex-1 flex flex-col">
         <!-- Chat Header -->
-        <div class="bg-white shadow-sm p-4 border-b flex items-center justify-between">
+        <div class="bg-white shadow-sm p-4 border-b flex items-center justify-between chat-header">
             <div class="flex items-center space-x-4">
-                <button id="mobile-sidebar-toggle" class="md:hidden text-gray-500">
+                <button id="mobile-sidebar-toggle"
+                    class="md:hidden text-gray-500 hover:text-gray-700 transition-colors">
                     <i class="fas fa-bars"></i>
                 </button>
+                <div
+                    class="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold shadow-md">
+                    {{ recipient.username[0].upper() }}
+                </div>
                 <div>
-                    <h1 class="text-xl font-semibold">Chat with {{ recipient.username }}</h1>
-                    <p class="text-sm text-gray-500">
+                    <h1 class="text-xl font-semibold text-gray-800">{{ recipient.username }}</h1>
+                    <p class="text-sm text-gray-500 flex items-center">
+                        <i class="fas fa-circle text-xs mr-1 text-green-400"></i>
                         {% if recipient.last_seen %}
                         Last seen {{ recipient.last_seen.strftime('%Y-%m-%d %H:%M') }}
                         {% else %}
@@ -45,14 +51,21 @@
                     </p>
                 </div>
             </div>
+            <div class="flex items-center space-x-2">
+                <div class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs flex items-center">
+                    <i class="fas fa-lock mr-1"></i>
+                    End-to-End Encrypted
+                </div>
+            </div>
         </div>
 
         <!-- Chat Messages -->
-        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-messages">
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 chat-messages-container" id="chat-messages">
             {% for message in messages %}
-            <div class="flex {% if message.is_current_user %}justify-end{% else %}justify-start{% endif %}">
+            <div
+                class="flex {% if message.is_current_user %}justify-end{% else %}justify-start{% endif %} message-wrapper">
                 <div
-                    class="max-w-md p-4 rounded-lg {% if message.is_current_user %}bg-blue-500 text-white{% else %}bg-white shadow{% endif %}">
+                    class="max-w-md p-4 rounded-lg shadow-md {% if message.is_current_user %}bg-gradient-to-r from-blue-500 to-indigo-600 text-white message-sent{% else %}bg-white border border-gray-200 message-received{% endif %}">
                     <!-- File Display -->
                     {% if message.is_file and message.file_path %}
                     <div class="mb-2">
@@ -60,22 +73,22 @@
                         {% if file_ext in ['jpg', 'jpeg', 'png', 'gif'] %}
                         <div class="relative">
                             <img src="{{ url_for('chat.preview_file', message_id=message.id) }}"
-                                class="max-w-full h-48 object-cover rounded-lg cursor-pointer" onclick="openImagePreview(this.src)">
-                            
+                                class="max-w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                onclick="openImagePreview(this.src)">
+
                             <a href="{{ url_for('chat.download_file', message_id=message.id) }}"
-                                class="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-md hover:bg-gray-100"
+                                class="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-md hover:bg-gray-100 transition-all duration-200 hover:scale-110"
                                 download>
                                 <i class="fas fa-download text-gray-800"></i>
                             </a>
-                       
                         </div>
                         {% else %}
-                        <div class="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg">
-                            <i class="fas fa-file text-xl"></i>
+                        <div class="flex items-center space-x-2 p-3 bg-gray-100 rounded-lg border">
+                            <i class="fas fa-file text-xl text-blue-500"></i>
                             <div class="flex-1 truncate">
-                                <span>{{ message.file_path.split('/')[-1] }}</span>
+                                <span class="font-medium text-gray-800">{{ message.file_path.split('/')[-1] }}</span>
                                 <a href="{{ url_for('chat.download_file', message_id=message.id) }}?download=1"
-                                    class="text-blue-500 hover:text-blue-700 ml-2">
+                                    class="text-blue-500 hover:text-blue-700 ml-2 transition-colors">
                                     <i class="fas fa-download mr-1"></i>Download
                                 </a>
                             </div>
@@ -83,13 +96,15 @@
                         {% endif %}
                     </div>
                     {% endif %}
+
                     <!-- Message Content -->
                     {% if message.body %}
-                    <p class="break-words">{{ message.body }}</p>
+                    <p class="break-words leading-relaxed">{{ message.body }}</p>
                     {% endif %}
+
                     <div
                         class="mt-2 flex items-center justify-between text-xs {% if message.is_current_user %}text-blue-100{% else %}text-gray-500{% endif %}">
-                        <span>{{ message.formatted_timestamp }}</span>
+                        <span class="message-time">{{ message.formatted_timestamp }}</span>
                         {% if not message.is_current_user and not message.signature_valid and message.body %}
                         <i class="fas fa-exclamation-triangle text-red-500 ml-2"
                             title="Signature verification failed"></i>
@@ -102,33 +117,40 @@
 
         <!-- Scroll to bottom button -->
         <button id="scroll-to-bottom"
-            class="fixed bottom-24 right-6 bg-blue-500 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg opacity-0 transition-opacity duration-300">
+            class="fixed bottom-24 right-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg opacity-0 transition-all duration-300 hover:scale-110">
             <i class="fas fa-arrow-down"></i>
         </button>
 
         <!-- Message Form -->
-        <div class="border-t p-4 bg-white">
+        <div class="border-t p-4 bg-white chat-input-area">
             <form id="message-form" method="POST" action="{{ url_for('chat.chat', user_id=recipient.id) }}"
                 enctype="multipart/form-data">
                 {{ form.hidden_tag() }}
                 <div class="flex flex-col space-y-2">
                     <!-- File Preview -->
-                    <div id="file-preview" class="hidden flex items-center space-x-2 p-2 bg-gray-100 rounded-lg"></div>
+                    <div id="file-preview" class="hidden flex items-center space-x-2 p-3 bg-gray-50 rounded-lg border">
+                    </div>
+
                     <!-- Message Input and Buttons -->
                     <div class="flex space-x-2">
-                        {{ form.message(class="flex-1 p-2 border rounded-lg focus:outline-none focus:border-blue-500",
-                        placeholder="Type your message...") }}
+                        {{ form.message(class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none
+                        focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 resize-none",
+                        placeholder="Type your secure message...", rows="1") }}
+
                         <!-- Hidden File Input -->
                         {{ form.file_data(class="hidden", id="file-input") }}
+
                         <!-- Custom File Button -->
                         <label for="file-input"
-                            class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg cursor-pointer flex items-center space-x-1 transition-colors duration-200">
+                            class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-3 rounded-lg cursor-pointer flex items-center space-x-1 transition-all duration-200 hover:scale-105">
                             <i class="fas fa-paperclip"></i>
-                            <span class="hidden md:inline">Attach</span>
+                            <span class="hidden md:inline font-medium">Attach</span>
                         </label>
+
                         <button type="submit"
-                            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
-                            Send
+                            class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-6 py-3 rounded-lg transition-all duration-200 hover:scale-105 shadow-md">
+                            <i class="fas fa-paper-plane mr-1"></i>
+                            <span class="hidden sm:inline">Send</span>
                         </button>
                     </div>
                 </div>
@@ -142,7 +164,7 @@
     <div class="bg-white w-64 h-full transform transition-transform duration-300 -translate-x-full">
         <div class="p-4 border-b flex justify-between items-center">
             <h2 class="text-lg font-semibold">Chats</h2>
-            <button id="close-mobile-sidebar" class="text-gray-500">
+            <button id="close-mobile-sidebar" class="text-gray-500 hover:text-gray-700">
                 <i class="fas fa-times"></i>
             </button>
         </div>
@@ -152,7 +174,7 @@
                 class="block p-3 hover:bg-gray-100 border-b {% if user.id == recipient.id %}bg-blue-50{% endif %}">
                 <div class="flex items-center space-x-3">
                     <div
-                        class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+                        class="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold">
                         {{ user.username[0].upper() }}
                     </div>
                     <div>
@@ -169,10 +191,10 @@
 <!-- Image Preview Modal -->
 <div id="image-modal" class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden flex items-center justify-center p-4">
     <div class="relative max-w-4xl w-full">
-        <button class="absolute top-4 right-4 text-white text-4xl z-50 hover:text-gray-300"
+        <button class="absolute top-4 right-4 text-white text-4xl z-50 hover:text-gray-300 transition-colors"
             onclick="closeImagePreview()">×</button>
         <div class="flex justify-center items-center h-full">
-            <img src="" class="max-w-full max-h-[90vh] object-contain" id="modal-image">
+            <img src="" class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" id="modal-image">
         </div>
     </div>
 </div>
@@ -278,10 +300,10 @@
                             fileContent = `
                                 <div class="relative mb-2">
                                     <img src="${msg.file_url}?preview=1" 
-                                         class="max-w-full h-48 object-cover rounded-lg cursor-pointer"
+                                         class="max-w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                          onclick="openImagePreview(this.src)">
                                     <a href="${msg.file_url}?download=1" 
-                                       class="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-md hover:bg-gray-100"
+                                       class="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-md hover:bg-gray-100 transition-all duration-200 hover:scale-110"
                                        download>
                                         <i class="fas fa-download text-gray-800"></i>
                                     </a>
@@ -289,12 +311,12 @@
                             `;
                         } else {
                             fileContent = `
-                                <div class="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg mb-2">
-                                    <i class="fas fa-file text-xl"></i>
+                                <div class="flex items-center space-x-2 p-3 bg-gray-100 rounded-lg border mb-2">
+                                    <i class="fas fa-file text-xl text-blue-500"></i>
                                     <div class="flex-1 truncate">
-                                        <span class="font-medium">${msg.filename}</span>
+                                        <span class="font-medium text-gray-800">${msg.filename}</span>
                                         <a href="${msg.file_url}?download=1" 
-                                           class="text-blue-500 hover:text-blue-700 ml-2">
+                                           class="text-blue-500 hover:text-blue-700 ml-2 transition-colors">
                                             <i class="fas fa-download mr-1"></i>Download
                                         </a>
                                     </div>
@@ -304,9 +326,9 @@
                     }
 
                     messageDiv.innerHTML = `
-                        <div class="max-w-md p-4 rounded-lg ${msg.is_current_user ? 'bg-blue-500 text-white' : 'bg-white shadow'}">
+                        <div class="max-w-md p-4 rounded-lg shadow-md ${msg.is_current_user ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white' : 'bg-white border border-gray-200'}">
                             ${fileContent}
-                            ${msg.body ? `<p class="break-words">${msg.body}</p>` : ''}
+                            ${msg.body ? `<p class="break-words leading-relaxed">${msg.body}</p>` : ''}
                             <div class="mt-2 flex items-center justify-between text-xs ${msg.is_current_user ? 'text-blue-100' : 'text-gray-500'}">
                                 <span>${new Date(msg.js_timestamp).toLocaleString()}</span>
                                 ${!msg.is_current_user && !msg.signature_valid && msg.body ? `
@@ -343,9 +365,9 @@
                 reader.onload = function (e) {
                     filePreview.innerHTML = `
                         <div class="flex items-center space-x-2">
-                            <img src="${e.target.result}" class="h-16 object-cover rounded" alt="File preview">
-                            <span class="text-sm text-gray-600 truncate">${file.name}</span>
-                            <button type="button" class="text-red-500 hover:text-red-700" id="clear-file">
+                            <img src="${e.target.result}" class="h-16 object-cover rounded border" alt="File preview">
+                            <span class="text-sm text-gray-600 truncate font-medium">${file.name}</span>
+                            <button type="button" class="text-red-500 hover:text-red-700 transition-colors" id="clear-file">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -356,9 +378,9 @@
             } else {
                 filePreview.innerHTML = `
                     <div class="flex items-center space-x-2">
-                        <i class="fas fa-file text-xl"></i>
-                        <span class="text-sm text-gray-600 truncate">${file.name}</span>
-                        <button type="button" class="text-red-500 hover:text-red-700" id="clear-file">
+                        <i class="fas fa-file text-xl text-blue-500"></i>
+                        <span class="text-sm text-gray-600 truncate font-medium">${file.name}</span>
+                        <button type="button" class="text-red-500 hover:text-red-700 transition-colors" id="clear-file">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -389,6 +411,15 @@
         }
     });
 
+    // Auto-resize textarea
+    const messageTextarea = document.querySelector('textarea[name="message"]');
+    if (messageTextarea) {
+        messageTextarea.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+    }
+
     // Auto-refresh messages
     setInterval(loadMessages, 2000);
     loadMessages();
@@ -400,6 +431,70 @@
 </script>
 
 <style>
+    /* Chat Sidebar */
+    .chat-sidebar {
+        background: linear-gradient(to bottom, #ffffff, #f8fafc);
+    }
+
+    /* Chat Header */
+    .chat-header {
+        background: linear-gradient(90deg, #ffffff 0%, #f8fafc 100%);
+        border-bottom: 2px solid #e5e7eb;
+    }
+
+    /* Chat Messages Container */
+    .chat-messages-container {
+        background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: #3b82f6 #f1f1f1;
+    }
+
+    .chat-messages-container::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .chat-messages-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .chat-messages-container::-webkit-scrollbar-thumb {
+        background: linear-gradient(45deg, #3b82f6, #6366f1);
+        border-radius: 10px;
+    }
+
+    /* Message Styles */
+    .message-wrapper {
+        animation: messageSlideIn 0.3s ease-out;
+    }
+
+    @keyframes messageSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .message-sent {
+        border-radius: 18px 18px 4px 18px;
+    }
+
+    .message-received {
+        border-radius: 18px 18px 18px 4px;
+    }
+
+    /* Input Area */
+    .chat-input-area {
+        background: linear-gradient(90deg, #ffffff 0%, #f8fafc 100%);
+        border-top: 2px solid #e5e7eb;
+    }
+
     /* Image Modal Styles */
     #image-modal {
         backdrop-filter: blur(5px);
@@ -421,25 +516,10 @@
         transform: scale(1.1);
     }
 
-    /* Message Container */
-    #chat-messages {
-        overscroll-behavior: contain;
-        scrollbar-width: thin;
-        scrollbar-color: #3b82f6 #f1f1f1;
-    }
-
-    #chat-messages::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    #chat-messages::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 10px;
-    }
-
-    #chat-messages::-webkit-scrollbar-thumb {
-        background: #3b82f6;
-        border-radius: 10px;
+    /* File Preview Styles */
+    #file-preview {
+        background: linear-gradient(45deg, #f8fafc, #e5e7eb);
+        border: 2px dashed #cbd5e1;
     }
 
     /* Responsive Adjustments */
@@ -448,6 +528,23 @@
             bottom: 80px;
             right: 20px;
         }
+
+        .message-sent,
+        .message-received {
+            max-width: 85%;
+        }
+    }
+
+    /* Hover Effects */
+    .message-wrapper:hover .message-sent,
+    .message-wrapper:hover .message-received {
+        transform: translateY(-1px);
+        transition: transform 0.2s ease;
+    }
+
+    /* Active States */
+    button:active {
+        transform: scale(0.98);
     }
 </style>
 {% endblock %}
