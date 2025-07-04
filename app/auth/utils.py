@@ -1,5 +1,6 @@
+import hashlib
 from flask import current_app
-from cryptography.hazmat.primitives import hashes, padding as sym_padding
+from cryptography.hazmat.primitives import hashes, serialization, padding as sym_padding
 from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -79,41 +80,96 @@ def decrypt_message(encrypted_message, private_key):
         current_app.logger.error(f"Message decryption error: {str(e)}")
         raise
 
+
 def sign_data(data, private_key):
+    """
+    Sign data using RSA private key and return base64-encoded signature.
+    """
     try:
-        current_app.logger.debug("Signing data")
+        current_app.logger.debug(f"[SIGN] Data to sign (repr): {repr(data)}")
+
+        if isinstance(data, str):
+            data_bytes = data.encode('utf-8')
+        else:
+            data_bytes = data
+
         signature = private_key.sign(
-            data.encode('utf-8'),
+            data_bytes,
             asym_padding.PSS(
                 mgf=asym_padding.MGF1(hashes.SHA256()),
                 salt_length=asym_padding.PSS.MAX_LENGTH
             ),
             hashes.SHA256()
         )
-        result = base64.b64encode(signature).decode('utf-8')
+
+        signature_b64 = base64.b64encode(signature).decode('utf-8')
         current_app.logger.info("Data signed successfully")
-        return result
+        current_app.logger.debug(f"[SIGN] Signature (b64): {signature_b64}")
+        return signature_b64
+
     except Exception as e:
-        current_app.logger.error(f"Data signing error: {str(e)}")
+        current_app.logger.error(
+            f"[SIGN] Data signing error: {str(e)}", exc_info=True)
         raise
 
+
 def verify_signature(data, signature, public_key):
+    """
+    Verify a digital signature with detailed debugging.
+    Returns True if valid, False otherwise.
+    """
     try:
-        current_app.logger.debug("Verifying signature")
+        current_app.logger.debug(f"[VERIFY] Input data (repr): {repr(data)}")
+        current_app.logger.debug(
+            f"[VERIFY] Input signature (b64): {signature}")
+
+        # Serialize public key and log its fingerprint
+        public_key_pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        fingerprint = hashlib.sha256(public_key_pem).hexdigest()
+        current_app.logger.debug(
+            f"[VERIFY] Public key SHA256 fingerprint: {fingerprint[:8]}...{fingerprint[-8:]}")
+
+        # Encode data
+        if isinstance(data, str):
+            data_bytes = data.encode('utf-8')
+        else:
+            data_bytes = data
+
+        # Decode signature from base64
+        try:
+            if isinstance(signature, str):
+                signature_bytes = base64.b64decode(signature)
+            else:
+                signature_bytes = signature
+            current_app.logger.debug(
+                f"[VERIFY] Decoded signature length: {len(signature_bytes)} bytes")
+        except Exception as decode_error:
+            current_app.logger.error(
+                f"[VERIFY] Signature base64 decode failed: {str(decode_error)}")
+            return False
+
+        # Verify the signature
         public_key.verify(
-            base64.b64decode(signature.encode('utf-8')),
-            data.encode('utf-8'),
+            signature_bytes,
+            data_bytes,
             asym_padding.PSS(
                 mgf=asym_padding.MGF1(hashes.SHA256()),
                 salt_length=asym_padding.PSS.MAX_LENGTH
             ),
             hashes.SHA256()
         )
-        current_app.logger.info("Signature verified successfully")
+
+        current_app.logger.info("[VERIFY] Signature verification successful")
         return True
+
     except Exception as e:
-        current_app.logger.error(f"Signature verification error: {str(e)}")
+        current_app.logger.error(
+            f"[VERIFY] Signature verification failed: {str(e)}", exc_info=True)
         return False
+
 
 def sign_file(file_data, private_key):
     try:

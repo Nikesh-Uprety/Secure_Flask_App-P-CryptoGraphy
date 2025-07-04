@@ -4,6 +4,7 @@ from flask_login import LoginManager
 from flask_talisman import Talisman
 from flask_csp.csp import csp_header
 from config import Config
+from flask_wtf.csrf import CSRFProtect
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -11,10 +12,14 @@ login_manager = LoginManager()
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
+
+    csrf = CSRFProtect(app)
     
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
+
+    
     
     # Security headers
     # Talisman(
@@ -37,6 +42,7 @@ def create_app(config_class=Config):
     # Create database tables
     with app.app_context():
         db.create_all()
+    
     
     return app
 

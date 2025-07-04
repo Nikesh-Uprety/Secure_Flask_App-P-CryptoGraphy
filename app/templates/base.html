@@ -11,7 +11,82 @@
     <!-- Marked.js for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     {% block head %}{% endblock %}
+    <style>
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: 500;
+        }
+
+        .status-available {
+            background-color: #ecfdf5;
+            color: #059669;
+        }
+
+        .status-pending {
+            background-color: #fef3c7;
+            color: #d97706;
+        }
+
+        .status-requested {
+            background-color: #dbeafe;
+            color: #2563eb;
+        }
+
+        .status-active {
+            background-color: #ede9fe;
+            color: #7c3aed;
+        }
+
+        .flash-message {
+            animation: slideIn 0.3s forwards, fadeOut 0.5s forwards 3s;
+        }
+
+        .success {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .error {
+            background-color: #F44336;
+            color: white;
+        }
+
+        .warning {
+            background-color: #FF9800;
+            color: white;
+        }
+
+        .info {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+            }
+
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        /* Just for testing */
+    </style>
 </head>
+
 
 <body class="bg-gray-50 flex flex-col min-h-screen">
     <!-- Header -->
@@ -41,24 +116,27 @@
         </div>
     </header>
 
-    <!-- Notification System -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    {% for category, message in messages %}
-    <div class="fixed top-4 right-4 z-50 transition-all duration-300 transform translate-x-full" id="notification">
-        <div
-            class="bg-{{ 'green' if category == 'success' else 'red' }}-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center">
-            <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }} mr-2"></i>
-            {{ message }}
-        </div>
-    </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
 
     <main class="container mx-auto flex-grow p-4">
         {% block content %}{% endblock %}
     </main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="fixed top-4 right-4 z-50 space-y-2" id="flash-messages">
+        {% for category, message in messages %}
+        <div class="flash-message {{ category }} px-6 py-3 rounded-lg shadow-lg flex items-center max-w-md">
+            <i class="fas 
+                                {% if category == 'success' %}fa-check-circle
+                                {% elif category == 'error' %}fa-exclamation-circle
+                                {% elif category == 'warning' %}fa-exclamation-triangle
+                                {% else %}fa-info-circle{% endif %} 
+                                mr-2"></i>
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
 
     <!-- NikuGPT Activation Button (just above the footer) -->
     {% if current_user.is_authenticated %}
@@ -91,7 +169,7 @@
             <!-- Welcome message and suggestions -->
             <div class="nikugpt-message ai">
                 <div class="nikugpt-welcome">
-                    <h4>🔐 Welcome to NikuGPT Security Assistant</h4>
+                    <h4>🔐 Welcome {{ current_user.username }} to NikuGPT Security Assistant</h4>
                     <p>I can help you understand this app's security features. Try these questions:</p>
                 </div>
             </div>

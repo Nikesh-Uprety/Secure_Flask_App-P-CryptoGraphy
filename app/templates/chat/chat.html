@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 
 {% block content %}
+
+
+<div id="toast-container" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 hidden">
+    <div id="toast" class="px-6 py-3 rounded shadow-lg font-medium text-center animate-slide-down hidden"></div>
+</div>
+
 <div class="flex h-screen bg-gray-50">
     <!-- Sidebar -->
     <div class="w-64 bg-white border-r hidden md:block chat-sidebar">
@@ -228,6 +234,39 @@
     //     credentials: 'same-origin'
     // })
 
+
+    // Toast Types and Styles
+
+    function showToast(message, type = 'info') {
+        const toast = document.getElementById('toast');
+        const container = document.getElementById('toast-container');
+
+        toast.classList.remove('hidden');
+        container.classList.remove('hidden');
+
+        toast.textContent = message;
+
+        // Reset styles
+        toast.className = 'px-6 py-3 rounded shadow-lg font-medium text-center animate-slide-down';
+
+        // Apply style based on type
+        if (type === 'success') {
+            toast.classList.add('bg-green-500', 'text-white');
+        } else if (type === 'error') {
+            toast.classList.add('bg-red-500', 'text-white');
+        } else if (type === 'warning') {
+            toast.classList.add('bg-yellow-400', 'text-black');
+        } else {
+            toast.classList.add('bg-blue-500', 'text-white');
+        }
+
+        // Auto hide toast
+        setTimeout(() => {
+            toast.classList.add('hidden');
+            container.classList.add('hidden');
+        }, 3000);
+    }
+
     // Image Preview Functions
     function openImagePreview(src) {
         const modal = document.getElementById('image-modal');
@@ -354,7 +393,7 @@
         const hasFile = fileInput.files && fileInput.files.length > 0;
 
         if (!messageText && !hasFile) {
-            alert('Please enter a message or select a file');
+            showToast('Please enter a message or select a file', 'error');
             return;
         }
 
@@ -419,7 +458,7 @@
                 if (messageElement && messageElement.parentNode) {
                     messageElement.parentNode.removeChild(messageElement);
                 }
-                alert('Failed to send message. Please try again.');
+                showToast('Failed to send message. Please try again.', 'error');
             })
             .finally(() => {
                 isSubmitting = false;
@@ -437,32 +476,41 @@
             const file = this.files[0];
             const fileExt = file.name.split('.').pop().toLowerCase();
 
+            // Allowed extensions
+            const allowedFileExtensions = ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt'];
+
+            if (!allowedFileExtensions.includes(fileExt)) {
+                showToast(`🚫 File type ".${fileExt}" is not allowed .\nAllowed: ${allowedFileExtensions.join(', ')}`, 'warning');
+                this.value = '';
+                return;
+            }
+
             if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
                 const reader = new FileReader();
                 reader.onload = function (e) {
                     filePreview.innerHTML = `
-                        <div class="flex items-center space-x-2">
-                            <img src="${e.target.result}" class="h-16 object-cover rounded border" alt="File preview">
-                            <span class="text-sm text-gray-600 truncate font-medium">${file.name}</span>
-                            <button type="button" class="text-red-500 hover:text-red-700 transition-colors" id="clear-file">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    `;
-                    filePreview.classList.remove('hidden');
-                    setupClearFileButton();
-                };
-                reader.readAsDataURL(file);
-            } else {
-                filePreview.innerHTML = `
                     <div class="flex items-center space-x-2">
-                        <i class="fas fa-file text-xl text-blue-500"></i>
+                        <img src="${e.target.result}" class="h-16 object-cover rounded border" alt="File preview">
                         <span class="text-sm text-gray-600 truncate font-medium">${file.name}</span>
                         <button type="button" class="text-red-500 hover:text-red-700 transition-colors" id="clear-file">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
                 `;
+                    filePreview.classList.remove('hidden');
+                    setupClearFileButton();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                filePreview.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-file text-xl text-blue-500"></i>
+                    <span class="text-sm text-gray-600 truncate font-medium">${file.name}</span>
+                    <button type="button" class="text-red-500 hover:text-red-700 transition-colors" id="clear-file">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
                 filePreview.classList.remove('hidden');
                 setupClearFileButton();
             }
@@ -580,163 +628,21 @@
         scrollToBottom(false);
     }, 100);
 </script>
-
 <style>
-    /* Hide scrollbars but keep scrolling functionality */
-    .chat-messages-container {
-        background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
-        overscroll-behavior: contain;
-        scrollbar-width: none;
-        /* Firefox */
-        -ms-overflow-style: none;
-        /* Internet Explorer 10+ */
-    }
-
-    .chat-messages-container::-webkit-scrollbar {
-        display: none;
-        /* WebKit */
-    }
-
-    .chat-sidebar-scroll {
-        scrollbar-width: none;
-        /* Firefox */
-        -ms-overflow-style: none;
-        /* Internet Explorer 10+ */
-    }
-
-    .chat-sidebar-scroll::-webkit-scrollbar {
-        display: none;
-        /* WebKit */
-    }
-
-    /* Chat Sidebar */
-    .chat-sidebar {
-        background: linear-gradient(to bottom, #ffffff, #f8fafc);
-    }
-
-    /* Chat Header */
-    .chat-header {
-        background: linear-gradient(90deg, #ffffff 0%, #f8fafc 100%);
-        border-bottom: 2px solid #e5e7eb;
-    }
-
-    /* Message Styles */
-    .message-wrapper {
-        animation: messageSlideIn 0.3s ease-out;
-    }
-
-    @keyframes messageSlideIn {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .message-sent {
-        border-radius: 18px 18px 4px 18px;
-    }
-
-    .message-received {
-        border-radius: 18px 18px 18px 4px;
-    }
-
-    /* Delivery Status Styles */
-    .delivery-status {
-        display: flex;
-        align-items: center;
-    }
-
-    .delivery-tick {
-        font-size: 12px;
-        transition: all 0.3s ease;
-    }
-
-    .delivery-tick.delivering {
-        color: rgba(255, 255, 255, 0.6);
-        animation: pulse 1.5s infinite;
-    }
-
-    .delivery-tick.delivered {
-        color: rgba(255, 255, 255, 0.9);
-    }
-
-    @keyframes pulse {
+    @keyframes slide-down {
         0% {
-            opacity: 0.6;
-        }
-
-        50% {
-            opacity: 1;
+            transform: translateY(-100%);
+            opacity: 0;
         }
 
         100% {
-            opacity: 0.6;
+            transform: translateY(0);
+            opacity: 1;
         }
     }
 
-    /* Input Area */
-    .chat-input-area {
-        background: linear-gradient(90deg, #ffffff 0%, #f8fafc 100%);
-        border-top: 2px solid #e5e7eb;
-    }
-
-    /* Image Modal Styles */
-    #image-modal {
-        backdrop-filter: blur(5px);
-    }
-
-    #modal-image {
-        max-width: 90vw;
-        max-height: 90vh;
-        object-fit: contain;
-    }
-
-    /* Download Button Styles */
-    .relative a[download] {
-        opacity: 1;
-        transition: transform 0.2s;
-    }
-
-    .relative a[download]:hover {
-        transform: scale(1.1);
-    }
-
-    /* File Preview Styles */
-    #file-preview {
-        background: linear-gradient(45deg, #f8fafc, #e5e7eb);
-        border: 2px dashed #cbd5e1;
-    }
-
-    /* Responsive Adjustments */
-    @media (max-width: 768px) {
-
-        .message-sent,
-        .message-received {
-            max-width: 85%;
-        }
-    }
-
-    /* Hover Effects */
-    .message-wrapper:hover .message-sent,
-    .message-wrapper:hover .message-received {
-        transform: translateY(-1px);
-        transition: transform 0.2s ease;
-    }
-
-    /* Active States */
-    button:active {
-        transform: scale(0.98);
-    }
-
-    /* Sending button state */
-    button:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
+    .animate-slide-down {
+        animation: slide-down 0.5s ease forwards;
     }
 </style>
 {% endblock %}

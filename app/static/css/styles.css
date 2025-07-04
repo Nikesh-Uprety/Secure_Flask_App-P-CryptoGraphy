@@ -434,3 +434,161 @@ body {
         max-height: 95vh !important;
     }
 }
+
+
+/* Styles for chat/chat.html */
+.chat-messages-container {
+    background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* Internet Explorer 10+ */
+}
+
+.chat-messages-container::-webkit-scrollbar {
+    display: none;
+    /* WebKit */
+}
+
+.chat-sidebar-scroll {
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* Internet Explorer 10+ */
+}
+
+.chat-sidebar-scroll::-webkit-scrollbar {
+    display: none;
+    /* WebKit */
+}
+
+/* Chat Sidebar */
+.chat-sidebar {
+    background: linear-gradient(to bottom, #ffffff, #f8fafc);
+}
+
+/* Chat Header */
+.chat-header {
+    background: linear-gradient(90deg, #ffffff 0%, #f8fafc 100%);
+    border-bottom: 2px solid #e5e7eb;
+}
+
+/* Message Styles */
+.message-wrapper {
+    animation: messageSlideIn 0.3s ease-out;
+}
+
+@keyframes messageSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message-sent {
+    border-radius: 18px 18px 4px 18px;
+}
+
+.message-received {
+    border-radius: 18px 18px 18px 4px;
+}
+
+/* Delivery Status Styles */
+.delivery-status {
+    display: flex;
+    align-items: center;
+}
+
+.delivery-tick {
+    font-size: 12px;
+    transition: all 0.3s ease;
+}
+
+.delivery-tick.delivering {
+    color: rgba(255, 255, 255, 0.6);
+    animation: pulse 1.5s infinite;
+}
+
+.delivery-tick.delivered {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.6;
+    }
+}
+
+/* Input Area */
+.chat-input-area {
+    background: linear-gradient(90deg, #ffffff 0%, #f8fafc 100%);
+    border-top: 2px solid #e5e7eb;
+}
+
+/* Image Modal Styles */
+#image-modal {
+    backdrop-filter: blur(5px);
+}
+
+#modal-image {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+}
+
+/* Download Button Styles */
+.relative a[download] {
+    opacity: 1;
+    transition: transform 0.2s;
+}
+
+.relative a[download]:hover {
+    transform: scale(1.1);
+}
+
+/* File Preview Styles */
+#file-preview {
+    background: linear-gradient(45deg, #f8fafc, #e5e7eb);
+    border: 2px dashed #cbd5e1;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+
+    .message-sent,
+    .message-received {
+        max-width: 85%;
+    }
+}
+
+/* Hover Effects */
+.message-wrapper:hover .message-sent,
+.message-wrapper:hover .message-received {
+    transform: translateY(-1px);
+    transition: transform 0.2s ease;
+}
+
+/* Active States */
+button:active {
+    transform: scale(0.98);
+}
+
+/* Sending button state */
+button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}

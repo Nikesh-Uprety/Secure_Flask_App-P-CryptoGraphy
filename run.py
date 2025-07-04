@@ -13,5 +13,5 @@ if __name__ == '__main__':
         ssl_context=('certs/localhost+2.pem', 'certs/localhost+2-key.pem'),  #  mkcert files
         host='0.0.0.0',  # Listen on all interfaces
         port=5000,
-        debug=False
+        debug=True
     )

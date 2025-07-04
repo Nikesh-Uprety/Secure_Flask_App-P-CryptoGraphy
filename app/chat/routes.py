@@ -1,11 +1,11 @@
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file, send_from_directory
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file, send_from_directory, abort
 from flask_login import current_user, login_required
 from app import db
-from app.models import User, Message
+from app.models import User, Message , ChatRequest
 from app.chat.forms import MessageForm
 from app.auth.utils import encrypt_message, decrypt_message, sign_data, verify_signature
-from app.chat.utils import save_file, generate_file_signature, verify_uploaded_file
+from app.chat.utils import save_file, generate_file_signature, verify_uploaded_file, allowed_file
 import google.generativeai as genai
 from flask import jsonify
 
@@ -21,43 +21,74 @@ def index():
     users = User.query.filter(User.id != current_user.id).all()
     return render_template('chat/index.html', title='Home', users=users)
 
+
 @chat_bp.route('/chat/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def chat(user_id):
+    # Check if there's an active chat between users
+    active_chat = ChatRequest.query.filter(
+        ((ChatRequest.sender_id == current_user.id) & (ChatRequest.recipient_id == user_id)) |
+        ((ChatRequest.sender_id == user_id) &
+         (ChatRequest.recipient_id == current_user.id)),
+        ChatRequest.status == 'accepted'
+    ).first()
+
+    if not active_chat:
+        flash(
+            'You need to have an accepted chat request before messaging this user.', 'error')
+        return redirect(url_for('chat.index'))
+
     recipient = User.query.get_or_404(user_id)
     form = MessageForm()
-    
+
     if request.method == 'POST':
-        current_app.logger.debug(f"Form submitted: message={form.message.data}, file_data={form.file_data.data}")
+        current_app.logger.debug(
+            f"Form submitted: message={form.message.data}, file_data={form.file_data.data}")
+
         if form.validate_on_submit():
             if not form.message.data and not form.file_data.data:
                 current_app.logger.error("No message or file provided")
                 flash('Please enter a message or select a file.', 'error')
                 return redirect(url_for('chat.chat', user_id=user_id))
-            
+
             file_path = None
             file_signature = None
             filename = None
-            
+
             if form.file_data.data:
-                current_app.logger.info(f"Processing file: {form.file_data.data.filename}")
-                filename, file_path = save_file(form.file_data.data, current_user.id)
+                uploaded_file = form.file_data.data
+                current_app.logger.info(
+                    f"Processing file: {uploaded_file.filename}")
+
+                # ✅ Check for disallowed file types here
+                if not allowed_file(uploaded_file.filename):
+                    current_app.logger.warning(
+                        f"Disallowed file type: {uploaded_file.filename}")
+                    flash(
+                        f"File type not allowed. Allowed types are: png, jpg, jpeg, gif, pdf, doc, docx, txt", 'warning')
+                    return redirect(url_for('chat.chat', user_id=user_id))
+
+                filename, file_path = save_file(uploaded_file, current_user.id)
                 if not filename or not file_path:
                     current_app.logger.error("File saving failed")
                     flash('Failed to save the file. Please try again.', 'error')
                     return redirect(url_for('chat.chat', user_id=user_id))
-                
-                file_signature = generate_file_signature(file_path, current_user.get_private_key())
+
+                file_signature = generate_file_signature(
+                    file_path, current_user.get_private_key())
                 if not file_signature:
-                    current_app.logger.error("File signature generation failed")
+                    current_app.logger.error(
+                        "File signature generation failed")
                     flash('Failed to generate file signature.', 'error')
                     return redirect(url_for('chat.chat', user_id=user_id))
 
             message_body = form.message.data or ''
             recipient_public_key = recipient.get_public_key()
-            encrypted_message = encrypt_message(message_body, recipient_public_key) if message_body else ''
-            signature = sign_data(message_body, current_user.get_private_key()) if message_body else ''
-            
+            encrypted_message = encrypt_message(
+                message_body, recipient_public_key) if message_body else ''
+            signature = sign_data(
+                message_body, current_user.get_private_key()) if message_body else ''
+
             message = Message(
                 sender_id=current_user.id,
                 recipient_id=user_id,
@@ -68,28 +99,30 @@ def chat(user_id):
                 file_path=file_path,
                 file_signature=file_signature
             )
-            
+
             try:
                 db.session.add(message)
                 db.session.commit()
-                current_app.logger.info(f"Message sent: {message.id}, file: {file_path}")
+                current_app.logger.info(
+                    f"Message sent: {message.id}, file: {file_path}")
                 flash('Your message has been sent!', 'success')
             except Exception as e:
                 current_app.logger.error(f"Database commit error: {str(e)}")
                 flash('Failed to send message. Please try again.', 'error')
                 db.session.rollback()
                 return redirect(url_for('chat.chat', user_id=user_id))
-            
+
             return redirect(url_for('chat.chat', user_id=user_id))
         else:
             current_app.logger.error(f"Form validation failed: {form.errors}")
-            flash('Invalid form submission. Please check your file type or size.', 'error')
-    
+            flash(
+                'Invalid form submission. Please check your file type or size.', 'error')
+
     messages = Message.query.filter(
         ((Message.sender_id == current_user.id) & (Message.recipient_id == user_id)) |
         ((Message.sender_id == user_id) & (Message.recipient_id == current_user.id))
     ).order_by(Message.timestamp.asc()).all()
-    
+
     decrypted_messages = []
     for msg in messages:
         if msg.sender_id == current_user.id:
@@ -97,13 +130,15 @@ def chat(user_id):
             signature_valid = True if not msg.body else True
         else:
             try:
-                decrypted_body = decrypt_message(msg.encrypted_body, current_user.get_private_key()) if msg.encrypted_body else ''
-                signature_valid = verify_signature(decrypted_body, msg.signature, recipient.get_public_key()) if msg.signature else True
+                decrypted_body = decrypt_message(
+                    msg.encrypted_body, current_user.get_private_key()) if msg.encrypted_body else ''
+                signature_valid = verify_signature(
+                    decrypted_body, msg.signature, recipient.get_public_key()) if msg.signature else True
             except Exception as e:
                 current_app.logger.error(f"Message decryption error: {str(e)}")
                 decrypted_body = "[Error decrypting message]"
                 signature_valid = False
-        
+
         decrypted_messages.append({
             'id': msg.id,
             'sender_id': msg.sender_id,
@@ -115,13 +150,14 @@ def chat(user_id):
             'signature_valid': signature_valid,
             'is_current_user': msg.sender_id == current_user.id
         })
-    
+
     return render_template('chat/chat.html',
-                         title=f'Chat with {recipient.username}',
-                         form=form,
-                         recipient=recipient,
-                         messages=decrypted_messages,
-                         users=User.query.filter(User.id != current_user.id).all())
+                           title=f'Chat with {recipient.username}',
+                           form=form,
+                           recipient=recipient,
+                           messages=decrypted_messages,
+                           users=User.query.filter(User.id != current_user.id).all())
+
 
 @chat_bp.route('/get_messages/<int:user_id>')
 @login_required
@@ -324,7 +360,7 @@ def ask_nikugpt():
 
     except Exception as e:
         current_app.logger.error(f"Gemini API error: {str(e)}", exc_info=True)
-        return jsonify({"reply": "I'm having technical difficulties. Please try again later."}), 500
+        return jsonify({"reply": "⚠️ AI is resting. Too many questions today. Please wait 24 hours"}), 500
 
 
 @chat_bp.route('/download/<int:message_id>')
@@ -377,3 +413,127 @@ def download_file(message_id):
         download_name=os.path.basename(file_path),
         mimetype=mime_type
     )
+
+
+@chat_bp.route('/send_request/<int:recipient_id>', methods=['POST'])
+@login_required
+def send_request(recipient_id):
+    recipient = User.query.get_or_404(recipient_id)
+
+    # Check for existing requests
+    existing_request = ChatRequest.query.filter(
+        ChatRequest.sender_id == current_user.id,
+        ChatRequest.recipient_id == recipient_id
+    ).first()
+
+    if existing_request:
+        flash('Request already exists', 'info')
+        return redirect(url_for('chat.index'))
+
+    # Generate consistent timestamp string
+    created_at = datetime.now(timezone.utc)
+    created_at_str = created_at.isoformat()
+    request_data = f"CHAT_REQUEST:{current_user.id}:{recipient_id}:{created_at_str}"
+
+    try:
+        signature = sign_data(request_data, current_user.get_private_key())
+    except Exception as e:
+        current_app.logger.error(f"Failed to sign request: {str(e)}")
+        flash('Failed to create request', 'error')
+        return redirect(url_for('chat.index'))
+
+    chat_request = ChatRequest(
+        sender_id=current_user.id,
+        recipient_id=recipient_id,
+        created_at=created_at,
+        created_at_str=created_at_str,  # ✅ New field added
+        signature=signature,
+        status='pending'
+    )
+
+    try:
+        db.session.add(chat_request)
+        db.session.commit()
+        flash('Chat request sent!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error: {str(e)}")
+        flash('Failed to send request', 'error')
+
+    return redirect(url_for('chat.index'))
+
+
+@chat_bp.route('/respond_request/<int:request_id>', methods=['POST'])
+@login_required
+def respond_chat_request(request_id):
+    chat_request = ChatRequest.query.get_or_404(request_id)
+
+    current_app.logger.debug(f"ChatRequest Object: {vars(chat_request)}")
+    current_app.logger.debug(f"Signature from DB: {chat_request.signature}")
+
+    if current_user.id != chat_request.recipient_id:
+        abort(403)
+
+    action = request.form.get('action')
+    if action != 'accept':
+        chat_request.status = 'rejected'
+        db.session.commit()
+        flash('Request rejected', 'info')
+        return redirect(url_for('chat.index'))
+
+    # ✅ Use stored `created_at_str` instead of `created_at.isoformat()`
+    original_data = f"CHAT_REQUEST:{chat_request.sender_id}:{chat_request.recipient_id}:{chat_request.created_at_str}"
+    current_app.logger.debug(f"Reconstructed original data: {original_data}")
+
+    sender = User.query.get(chat_request.sender_id)
+    if not sender:
+        flash('Sender not found', 'error')
+        return redirect(url_for('chat.index'))
+
+    current_app.logger.debug("Attempting signature verification...")
+    if not verify_signature(original_data, chat_request.signature, sender.get_public_key()):
+        # Optional debug info if needed
+        try:
+            # NOTE: You CANNOT regenerate signature unless you have sender's private key
+            new_signature = sign_data(
+                original_data, sender.get_private_key())  # Only for debug
+            current_app.logger.debug(
+                f"Newly generated signature: {new_signature}")
+            current_app.logger.debug(
+                f"Original signature: {chat_request.signature}")
+            current_app.logger.debug(
+                f"Signatures match: {new_signature == chat_request.signature}")
+        except Exception as e:
+            current_app.logger.error(f"Resigning failed: {str(e)}")
+
+        flash('Request verification failed', 'error')
+        return redirect(url_for('chat.index'))
+
+    chat_request.status = 'accepted'
+    db.session.commit()
+    flash('Request accepted!', 'success')
+    return redirect(url_for('chat.index'))
+
+def test_signature(user_id):
+    """Test endpoint to verify key functionality"""
+    user = User.query.get_or_404(user_id)
+
+    test_data = "TEST_SIGNATURE_DATA"
+    current_app.logger.debug(f"Testing with data: {test_data}")
+
+    try:
+        # Sign and verify with the same key
+        signature = sign_data(test_data, user.get_private_key())
+        current_app.logger.debug(f"Generated signature: {signature}")
+
+        is_valid = verify_signature(
+            test_data, signature, user.get_public_key())
+        return jsonify({
+            'success': is_valid,
+            'public_key': user.public_key,
+            'test_data': test_data,
+            'signature': signature,
+            'verification_result': is_valid
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
