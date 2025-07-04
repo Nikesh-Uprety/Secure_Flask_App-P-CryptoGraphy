@@ -44,7 +44,7 @@ def login():
             next_page = request.args.get('next')
             return redirect(next_page) if next_page else redirect(url_for('chat.index'))
         else:
-            flash('Login unsuccessful. Please check email and password.', 'danger')
+            flash('Login unsuccessful. Please check email and password.', 'error')
 
     return render_template('auth/login.html', title='Login', form=form)
 

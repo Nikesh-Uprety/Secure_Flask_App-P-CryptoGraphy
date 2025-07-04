@@ -1,10 +1,20 @@
 {% extends "base.html" %}
 
 {% block content %}
+
+<!-- TOAST Container -->
+<div id="toast-container" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 hidden">
+    <div id="toast" class="px-6 py-3 rounded shadow-lg font-medium text-center animate-slide-down hidden"></div>
+</div>
+
+<!-- Registration Form -->
 <div class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl p-6 mt-10">
     <h1 class="text-2xl font-bold text-center mb-6">Register</h1>
+
     <form method="POST" action="">
         {{ form.hidden_tag() }}
+
+        <!-- Username -->
         <div class="mb-4">
             {{ form.username.label(class="block text-gray-700 text-sm font-bold mb-2") }}
             {{ form.username(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight
@@ -13,6 +23,8 @@
             <p class="text-red-500 text-xs italic">{{ form.username.errors[0] }}</p>
             {% endif %}
         </div>
+
+        <!-- Email -->
         <div class="mb-4">
             {{ form.email.label(class="block text-gray-700 text-sm font-bold mb-2") }}
             {{ form.email(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight
@@ -21,31 +33,174 @@
             <p class="text-red-500 text-xs italic">{{ form.email.errors[0] }}</p>
             {% endif %}
         </div>
+
+        <!-- Password -->
         <div class="mb-4">
             {{ form.password.label(class="block text-gray-700 text-sm font-bold mb-2") }}
             {{ form.password(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight
-            focus:outline-none focus:shadow-outline") }}
+            focus:outline-none focus:shadow-outline", id="password") }}
             {% if form.password.errors %}
             <p class="text-red-500 text-xs italic">{{ form.password.errors[0] }}</p>
             {% endif %}
+
+            <div class="mt-2">
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="strength-bar" class="h-2.5 rounded-full transition-all duration-300" style="width: 0%;">
+                    </div>
+                </div>
+                <p id="strength-text" class="text-sm mt-1"></p>
+                <ul id="password-requirements" class="text-xs text-gray-600 mt-1">
+                    <li id="length-check">At least 8 characters <span></span></li>
+                    <li id="uppercase-check">At least 1 uppercase letter <span></span></li>
+                    <li id="number-check">At least 1 number <span></span></li>
+                    <li id="special-check">At least 1 special character <span></span></li>
+                </ul>
+            </div>
         </div>
+
+        <!-- Confirm Password -->
         <div class="mb-6">
             {{ form.confirm_password.label(class="block text-gray-700 text-sm font-bold mb-2") }}
             {{ form.confirm_password(class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700
-            leading-tight focus:outline-none focus:shadow-outline") }}
+            leading-tight focus:outline-none focus:shadow-outline", id="confirm-password") }}
             {% if form.confirm_password.errors %}
             <p class="text-red-500 text-xs italic">{{ form.confirm_password.errors[0] }}</p>
             {% endif %}
+            <p id="mismatch-warning" class="text-red-500 text-xs italic hidden">Passwords do not match.</p>
         </div>
+
+        <!-- Submit Button -->
         <div class="flex items-center justify-between">
             {{ form.submit(class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded
-            focus:outline-none focus:shadow-outline w-full") }}
+            focus:outline-none focus:shadow-outline w-full disabled:bg-gray-400 disabled:cursor-not-allowed",
+            id="submit-button", disabled=True) }}
         </div>
     </form>
+
+    <!-- Login Link -->
     <div class="mt-4 text-center">
         <a href="{{ url_for('auth.login') }}" class="text-blue-500 hover:text-blue-700 text-sm">
             Already have an account? Login
         </a>
     </div>
 </div>
+
+<!-- JavaScript -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirm-password');
+        const strengthBar = document.getElementById('strength-bar');
+        const strengthText = document.getElementById('strength-text');
+        const lengthCheck = document.getElementById('length-check').querySelector('span');
+        const uppercaseCheck = document.getElementById('uppercase-check').querySelector('span');
+        const numberCheck = document.getElementById('number-check').querySelector('span');
+        const specialCheck = document.getElementById('special-check').querySelector('span');
+        const mismatchWarning = document.getElementById('mismatch-warning');
+        const submitButton = document.getElementById('submit-button');
+        const toast = document.getElementById('toast');
+        const toastContainer = document.getElementById('toast-container');
+        const form = document.querySelector('form');
+
+        function showToast(message, type = 'info') {
+            toast.textContent = message;
+            toast.className = 'px-6 py-3 rounded shadow-lg font-medium text-center animate-slide-down';
+            toastContainer.classList.remove('hidden');
+            toast.classList.remove('hidden');
+
+            if (type === 'success') {
+                toast.classList.add('bg-green-500', 'text-white');
+            } else if (type === 'error') {
+                toast.classList.add('bg-red-500', 'text-white');
+            } else if (type === 'warning') {
+                toast.classList.add('bg-yellow-400', 'text-black');
+            } else {
+                toast.classList.add('bg-blue-500', 'text-white');
+            }
+
+            setTimeout(() => {
+                toast.classList.add('hidden');
+                toastContainer.classList.add('hidden');
+            }, 3000);
+        }
+
+        const evaluatePassword = (password) => {
+            let score = 0;
+            const checks = {
+                length: password.length >= 8,
+                uppercase: /[A-Z]/.test(password),
+                number: /[0-9]/.test(password),
+                special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+            };
+            score = Object.values(checks).filter(Boolean).length;
+
+            lengthCheck.textContent = checks.length ? '✔' : '✘';
+            lengthCheck.style.color = checks.length ? 'green' : 'red';
+            uppercaseCheck.textContent = checks.uppercase ? '✔' : '✘';
+            uppercaseCheck.style.color = checks.uppercase ? 'green' : 'red';
+            numberCheck.textContent = checks.number ? '✔' : '✘';
+            numberCheck.style.color = checks.number ? 'green' : 'red';
+            specialCheck.textContent = checks.special ? '✔' : '✘';
+            specialCheck.style.color = checks.special ? 'green' : 'red';
+
+            switch (score) {
+                case 0:
+                case 1:
+                    return { strength: 'Weak', color: 'bg-red-500', width: '25%', valid: false };
+                case 2:
+                    return { strength: 'Good', color: 'bg-yellow-500', width: '50%', valid: false };
+                case 3:
+                    return { strength: 'Strong', color: 'bg-green-500', width: '75%', valid: false };
+                case 4:
+                    return { strength: 'Very Strong', color: 'bg-green-700', width: '100%', valid: true };
+            }
+        };
+
+        const updateStrengthIndicator = () => {
+            const password = passwordInput.value;
+            const result = evaluatePassword(password);
+            strengthBar.style.width = result.width;
+            strengthBar.className = `h-2.5 rounded-full transition-all duration-300 ${result.color}`;
+            strengthText.textContent = password ? `Password Strength: ${result.strength}` : '';
+            updateSubmitButton();
+        };
+
+        const checkPasswordMatch = () => {
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+            mismatchWarning.classList.toggle('hidden', password === confirmPassword || !confirmPassword);
+            updateSubmitButton();
+        };
+
+        const updateSubmitButton = () => {
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+            const result = evaluatePassword(password);
+            submitButton.disabled = !(result.valid && password === confirmPassword);
+        };
+
+        // Real-time validation
+        passwordInput.addEventListener('input', () => {
+            updateStrengthIndicator();
+            checkPasswordMatch();
+        });
+
+        confirmPasswordInput.addEventListener('input', checkPasswordMatch);
+
+        // Prevent form submission if password is not valid
+        form.addEventListener('submit', (e) => {
+            const password = passwordInput.value;
+            const confirmPassword = confirmPasswordInput.value;
+            const result = evaluatePassword(password);
+
+            if (!(result.valid && password === confirmPassword)) {
+                e.preventDefault();
+                showToast('Password requirement not met. Try again.', 'error');
+            }
+        });
+
+        // Initial state
+        updateStrengthIndicator();
+    });
+</script>
 {% endblock %}

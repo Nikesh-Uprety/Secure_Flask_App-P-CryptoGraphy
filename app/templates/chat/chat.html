@@ -1,19 +1,17 @@
 {% extends "base.html" %}
 
 {% block content %}
-
-
 <div id="toast-container" class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 hidden">
     <div id="toast" class="px-6 py-3 rounded shadow-lg font-medium text-center animate-slide-down hidden"></div>
 </div>
 
 <div class="flex h-screen bg-gray-50">
     <!-- Sidebar -->
-    <div class="w-64 bg-white border-r hidden md:block chat-sidebar">
-        <div class="p-4 border-b">
+    <div class="w-64 bg-white border-r hidden md:block overflow-y-auto">
+        <div class="p-4 border-b sticky top-0 bg-white z-10">
             <h2 class="text-lg font-semibold text-gray-800">Chats</h2>
         </div>
-        <div class="overflow-y-auto h-full chat-sidebar-scroll">
+        <div>
             {% for user in users %}
             <a href="{{ url_for('chat.chat', user_id=user.id) }}"
                 class="block p-3 hover:bg-gray-100 border-b transition-colors duration-200 {% if user.id == recipient.id %}bg-blue-50 border-l-4 border-l-blue-500{% endif %}">
@@ -33,9 +31,9 @@
     </div>
 
     <!-- Main Chat Area -->
-    <div class="flex-1 flex flex-col">
+    <div class="flex-1 flex flex-col h-screen">
         <!-- Chat Header -->
-        <div class="bg-white shadow-sm p-4 border-b flex items-center justify-between chat-header">
+        <div class="bg-white shadow-sm p-4 border-b flex items-center justify-between sticky top-0 z-10">
             <div class="flex items-center space-x-4">
                 <button id="mobile-sidebar-toggle"
                     class="md:hidden text-gray-500 hover:text-gray-700 transition-colors">
@@ -66,7 +64,7 @@
         </div>
 
         <!-- Chat Messages -->
-        <div class="flex-1 overflow-y-auto p-4 space-y-4 chat-messages-container" id="chat-messages">
+        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-messages">
             {% for message in messages %}
             <div
                 class="flex {% if message.is_current_user %}justify-end{% else %}justify-start{% endif %} message-wrapper">
@@ -129,7 +127,7 @@
         </div>
 
         <!-- Message Form -->
-        <div class="border-t p-4 bg-white chat-input-area">
+        <div class="border-t p-4 bg-white sticky bottom-0">
             <form id="message-form" method="POST" action="{{ url_for('chat.chat', user_id=recipient.id) }}"
                 enctype="multipart/form-data">
                 {{ form.hidden_tag() }}
@@ -177,7 +175,7 @@
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <div class="overflow-y-auto h-full chat-sidebar-scroll">
+        <div class="overflow-y-auto h-full">
             {% for user in users %}
             <a href="{{ url_for('chat.chat', user_id=user.id) }}"
                 class="block p-3 hover:bg-gray-100 border-b {% if user.id == recipient.id %}bg-blue-50{% endif %}">
@@ -208,10 +206,6 @@
     </div>
 </div>
 
-<!-- CSRF Token for AJAX -->
-
-
-<!-- JavaScript -->
 <script>
     // Global variables
     let isSubmitting = false;
@@ -224,19 +218,8 @@
 
     // Get CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-    // fetch(this.action, {
-    //     method: 'POST',
-    //     body: formData,
-    //     headers: {
-    //         'X-CSRFToken': csrfToken,
-    //         'X-Requested-With': 'XMLHttpRequest'
-    //     },
-    //     credentials: 'same-origin'
-    // })
-
 
     // Toast Types and Styles
-
     function showToast(message, type = 'info') {
         const toast = document.getElementById('toast');
         const container = document.getElementById('toast-container');
@@ -433,18 +416,15 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                // Check if response is JSON or HTML
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
                     return response.json();
                 } else {
-                    // If it's HTML (page reload), consider it successful
                     return { success: true };
                 }
             })
             .then(data => {
                 console.log('Message sent successfully:', data);
-                // Update delivery status
                 const deliveryTick = messageElement.querySelector('.delivery-tick');
                 if (deliveryTick) {
                     deliveryTick.classList.remove('delivering');
@@ -454,7 +434,6 @@
             })
             .catch(error => {
                 console.error('Error sending message:', error);
-                // Remove the message from UI on failure
                 if (messageElement && messageElement.parentNode) {
                     messageElement.parentNode.removeChild(messageElement);
                 }
@@ -476,7 +455,6 @@
             const file = this.files[0];
             const fileExt = file.name.split('.').pop().toLowerCase();
 
-            // Allowed extensions
             const allowedFileExtensions = ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt'];
 
             if (!allowedFileExtensions.includes(fileExt)) {
@@ -549,15 +527,13 @@
         fetch(`/get_messages/{{ recipient.id }}`)
             .then(response => response.json())
             .then(messages => {
-                // Only update if there are new messages to avoid disrupting user experience
                 const currentMessageCount = messagesContainer.children.length;
                 if (messages.length > currentMessageCount) {
                     const wasAtBottom = messagesContainer.scrollTop + messagesContainer.clientHeight >= messagesContainer.scrollHeight - 50;
 
-                    // Add only new messages
                     for (let i = currentMessageCount; i < messages.length; i++) {
                         const msg = messages[i];
-                        if (!msg.is_current_user) { // Only add received messages
+                        if (!msg.is_current_user) {
                             const messageDiv = document.createElement('div');
                             messageDiv.className = 'flex justify-start message-wrapper';
 
