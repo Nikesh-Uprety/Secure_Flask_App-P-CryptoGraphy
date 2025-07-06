@@ -18,10 +18,9 @@ class User(UserMixin, db.Model):
     public_key = db.Column(db.Text, nullable=False)
     private_key = db.Column(db.Text, nullable=False)
     created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc))
-    # created_at_str = db.Column(db.String, nullable=False)
+        db.DateTime, default=lambda: datetime.now())
     last_seen = db.Column(
-        db.DateTime, default=lambda: datetime.now(timezone.utc))
+        db.DateTime, default=lambda: datetime.now())
 
     # Relationships
     messages_sent = db.relationship('Message',
@@ -147,10 +146,12 @@ class Message(db.Model):
     encrypted_body = db.Column(db.Text, nullable=False)
     signature = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, index=True,
-                          default=lambda: datetime.now(timezone.utc))
+                          default=lambda: datetime.now())
     is_file = db.Column(db.Boolean, default=False)
     file_path = db.Column(db.String(256))
     file_signature = db.Column(db.Text)
+
+    
 
     def local_timestamp(self):
         """Returns timestamp converted to local time"""

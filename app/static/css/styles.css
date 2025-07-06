@@ -503,6 +503,7 @@ body {
 .delivery-status {
     display: flex;
     align-items: center;
+    margin-left: 6px;
 }
 
 .delivery-tick {

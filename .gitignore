@@ -2,5 +2,8 @@
 app/__pycache__
 app/auth/__pycache__
 app/chat/__pycache__
+
 .env
+env
+.env*
 
