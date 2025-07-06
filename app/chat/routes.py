@@ -1,18 +1,23 @@
-from datetime import datetime, timezone
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file, send_from_directory, abort
-from flask_login import current_user, login_required
-from app import db
-from app.models import User, Message , ChatRequest
-from app.chat.forms import MessageForm
-from app.auth.utils import encrypt_message, decrypt_message, sign_data, verify_signature
-from app.chat.utils import save_file, generate_file_signature, verify_uploaded_file, allowed_file
-import google.generativeai as genai
-from flask import jsonify
-
-import os
 import mimetypes
+import os
+from datetime import datetime, timezone
+
+import google.generativeai as genai
+from flask import (Blueprint, abort, current_app, flash, jsonify, redirect,
+                   render_template, request, send_file, send_from_directory,
+                   url_for)
+from flask_login import current_user, login_required
+
+from app import csrf, db
+from app.auth.utils import (decrypt_message, encrypt_message, sign_data,
+                            verify_signature)
+from app.chat.forms import MessageForm
+from app.chat.utils import (allowed_file, generate_file_signature, save_file,
+                            verify_uploaded_file)
+from app.models import ChatRequest, Message, User
 
 chat_bp = Blueprint('chat', __name__)
+
 
 @chat_bp.route('/')
 @chat_bp.route('/index')
@@ -163,12 +168,12 @@ def chat(user_id):
 @login_required
 def get_messages(user_id):
     recipient = User.query.get_or_404(user_id)
-    
+
     messages = Message.query.filter(
         ((Message.sender_id == current_user.id) & (Message.recipient_id == user_id)) |
         ((Message.sender_id == user_id) & (Message.recipient_id == current_user.id))
     ).order_by(Message.timestamp.asc()).all()
-    
+
     decrypted_messages = []
     for msg in messages:
         if msg.sender_id == current_user.id:
@@ -176,12 +181,14 @@ def get_messages(user_id):
             signature_valid = True if not msg.body else True
         else:
             try:
-                decrypted_body = decrypt_message(msg.encrypted_body, current_user.get_private_key()) if msg.encrypted_body else ''
-                signature_valid = verify_signature(decrypted_body, msg.signature, recipient.get_public_key()) if msg.signature else True
+                decrypted_body = decrypt_message(
+                    msg.encrypted_body, current_user.get_private_key()) if msg.encrypted_body else ''
+                signature_valid = verify_signature(
+                    decrypted_body, msg.signature, recipient.get_public_key()) if msg.signature else True
             except Exception:
                 decrypted_body = "[Error decrypting message]"
                 signature_valid = False
-        
+
         decrypted_messages.append({
             'id': msg.id,
             'sender_id': msg.sender_id,
@@ -192,10 +199,12 @@ def get_messages(user_id):
             'file_url': url_for('chat.download_file', message_id=msg.id) if msg.is_file else None,
             'filename': os.path.basename(msg.file_path) if msg.file_path else None,
             'signature_valid': signature_valid,
-            'is_current_user': msg.sender_id == current_user.id
+            'is_current_user': msg.sender_id == current_user.id,
+            "download_url": url_for('chat.download_file', message_id=msg.id) if msg.is_file else None
         })
-    
-    current_app.logger.debug(f"Returning {len(decrypted_messages)} messages for user {user_id}")
+
+    current_app.logger.debug(
+        f"Returning {len(decrypted_messages)} messages for user {user_id}")
     return jsonify(decrypted_messages)
 
 
@@ -205,7 +214,8 @@ def preview_file(message_id):
     message = Message.query.get_or_404(message_id)
 
     if not message.is_file or not message.file_path:
-        current_app.logger.error(f"No file associated with message ID {message_id}")
+        current_app.logger.error(
+            f"No file associated with message ID {message_id}")
         flash('No file associated with this message.', 'error')
         return redirect(url_for('chat.chat', user_id=message.recipient_id))
 
@@ -225,17 +235,19 @@ def preview_file(message_id):
     if not mime_type:
         mime_type = 'application/octet-stream'
 
-    current_app.logger.info(f"Previewing file: {file_path} with MIME: {mime_type}")
+    current_app.logger.info(
+        f"Previewing file: {file_path} with MIME: {mime_type}")
     return send_file(file_path, mimetype=mime_type)
 
 
+@csrf.exempt
 @chat_bp.route("/niku-ai", methods=["POST"])
 @login_required
 def ask_nikugpt():
     """Handle AI assistant requests using Gemini 1.5 Flash API"""
     try:
         # Validate request
-        data = request.get_json()
+        data = request.get_json(force=True)
         if not data:
             current_app.logger.error("No JSON data received")
             return jsonify({"reply": "Invalid request format"}), 400
@@ -284,6 +296,7 @@ def ask_nikugpt():
         # Initialize model with latest Gemini 1.5 Flash
         model = genai.GenerativeModel(
             model_name="gemini-1.5-flash",
+            # model_name="gemini-2.5-pro",
             generation_config=generation_config,
             safety_settings=safety_settings
         )
@@ -369,7 +382,8 @@ def download_file(message_id):
     message = Message.query.get_or_404(message_id)
 
     if not message.is_file or not message.file_path:
-        current_app.logger.error(f"No file associated with message ID {message_id}")
+        current_app.logger.error(
+            f"No file associated with message ID {message_id}")
         flash('No file associated with this message.', 'error')
         return redirect(url_for('chat.chat', user_id=message.recipient_id))
 
@@ -389,12 +403,14 @@ def download_file(message_id):
     if message.file_signature:
         sender = User.query.get(message.sender_id)
         if not sender:
-            current_app.logger.error(f"Sender not found for message ID {message_id}")
+            current_app.logger.error(
+                f"Sender not found for message ID {message_id}")
             flash('Sender info unavailable.', 'error')
             return redirect(url_for('chat.chat', user_id=message.recipient_id))
         try:
             if not verify_uploaded_file(safe_path, message.file_signature, sender.get_public_key()):
-                current_app.logger.error(f"Signature verification failed for file: {file_path}")
+                current_app.logger.error(
+                    f"Signature verification failed for file: {file_path}")
                 flash('File signature verification failed.', 'error')
                 return redirect(url_for('chat.chat', user_id=message.recipient_id))
         except Exception as e:
@@ -406,7 +422,8 @@ def download_file(message_id):
     if not mime_type:
         mime_type = 'application/octet-stream'
 
-    current_app.logger.info(f"Downloading file: {file_path} with MIME: {mime_type}")
+    current_app.logger.info(
+        f"Downloading file: {file_path} with MIME: {mime_type}")
     return send_file(
         file_path,
         as_attachment=True,
@@ -513,6 +530,7 @@ def respond_chat_request(request_id):
     db.session.commit()
     flash('Request accepted!', 'success')
     return redirect(url_for('chat.index'))
+
 
 def test_signature(user_id):
     """Test endpoint to verify key functionality"""

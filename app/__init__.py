@@ -8,12 +8,14 @@ from flask_wtf.csrf import CSRFProtect
 
 db = SQLAlchemy()
 login_manager = LoginManager()
+csrf = CSRFProtect()
 
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    csrf = CSRFProtect(app)
+    csrf.init_app(app)
+    
     
     # Initialize extensions
     db.init_app(app)

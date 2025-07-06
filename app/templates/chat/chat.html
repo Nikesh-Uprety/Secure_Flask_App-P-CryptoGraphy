@@ -305,62 +305,64 @@
     // Add message to UI function
     function addMessageToUI(messageData) {
         const messageWrapper = document.createElement('div');
-        messageWrapper.className = `flex justify-end message-wrapper`;
+        messageWrapper.className = 'flex justify-end message-wrapper';
 
         let fileContent = '';
         if (messageData.file_url && messageData.filename) {
             const fileExt = messageData.filename.split('.').pop().toLowerCase();
-            if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExt)) {
+            const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(fileExt);
+
+            if (isImage) {
+                const previewSrc = messageData.preview_file || messageData.file_url;
                 fileContent = `
-                    <div class="relative mb-2">
-                        <img src="${messageData.file_url}?preview=1" 
-                             class="max-w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                             onclick="openImagePreview(this.src)">
-                        <a href="${messageData.file_url}?download=1" 
-                           class="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-md hover:bg-gray-100 transition-all duration-200 hover:scale-110"
-                           download>
-                            <i class="fas fa-download text-gray-800"></i>
-                        </a>
-                    </div>
-                `;
+                <div class="relative mb-2">
+                    <img src="${previewSrc}" 
+                         class="max-w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                         onclick="openImagePreview('${previewSrc}')">
+                    <a href="${messageData.preview_file || messageData.file_url}" 
+                       class="absolute top-2 right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center shadow-md hover:bg-gray-100 transition-all duration-200 hover:scale-110"
+                       download>
+                        <i class="fas fa-download text-gray-800"></i>
+                    </a>
+                </div>
+            `;
             } else {
                 fileContent = `
-                    <div class="flex items-center space-x-2 p-3 bg-gray-100 rounded-lg border mb-2">
-                        <i class="fas fa-file text-xl text-blue-500"></i>
-                        <div class="flex-1 truncate">
-                            <span class="font-medium text-gray-800">${messageData.filename}</span>
-                            <a href="${messageData.file_url}?download=1" 
-                               class="text-blue-500 hover:text-blue-700 ml-2 transition-colors">
-                                <i class="fas fa-download mr-1"></i>Download
-                            </a>
-                        </div>
+                <div class="flex items-center space-x-2 p-3 bg-gray-100 rounded-lg border mb-2">
+                    <i class="fas fa-file text-xl text-blue-500"></i>
+                    <div class="flex-1 truncate">
+                        <span class="font-medium text-gray-800">${messageData.filename}</span>
+                        <a href="${messageData.download_url || messageData.file_url}" 
+                           class="text-blue-500 hover:text-blue-700 ml-2 transition-colors"
+                           download>
+                            <i class="fas fa-download mr-1"></i>Download
+                        </a>
                     </div>
-                `;
+                </div>
+            `;
             }
         }
 
         const currentTime = new Date().toLocaleTimeString('en-US', {
-            month:"2-digit",
-            day:"2-digit",
             hour12: false,
             hour: '2-digit',
             minute: '2-digit'
         });
 
         messageWrapper.innerHTML = `
-            <div class="max-w-md p-4 rounded-lg shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 text-white message-sent">
-                ${fileContent}
-                ${messageData.body ? `<p class="break-words leading-relaxed">${messageData.body}</p>` : ''}
-                <div class="mt-2 flex items-center justify-between text-xs text-blue-100">
-                    <span class="message-time">${currentTime}</span>
-                    <div class="flex items-center space-x-1">
-                        <div class="delivery-status">
-                            <i class="fas fa-check delivery-tick delivering" title="Sending..."></i>
-                        </div>
+        <div class="max-w-md p-4 rounded-lg shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 text-white message-sent">
+            ${fileContent}
+            ${messageData.body ? `<p class="break-words leading-relaxed">${messageData.body}</p>` : ''}
+            <div class="mt-2 flex items-center justify-between text-xs text-blue-100">
+                <span class="message-time">${currentTime}</span>
+                <div class="flex items-center space-x-1">
+                    <div class="delivery-status">
+                        <i class="fas fa-check delivery-tick delivering" title="Sending..."></i>
                     </div>
                 </div>
             </div>
-        `;
+        </div>
+    `;
 
         messagesContainer.appendChild(messageWrapper);
         scrollToBottom();
@@ -393,7 +395,9 @@
         const messageData = {
             body: messageText,
             filename: hasFile ? fileInput.files[0].name : null,
-            file_url: hasFile ? URL.createObjectURL(fileInput.files[0]) : null
+            file_url: hasFile ? URL.createObjectURL(fileInput.files[0]) : null,
+            download_url: null,  // temporary
+            preview_file: null    // temporary
         };
         const messageElement = addMessageToUI(messageData);
 
@@ -427,6 +431,23 @@
             })
             .then(data => {
                 console.log('Message sent successfully:', data);
+
+                // Update preview/download links
+                if (data.preview_url || data.download_url) {
+                    const imgEl = messageElement.querySelector('img');
+                    const downloadAnchor = messageElement.querySelector('a[download]');
+
+                    if (imgEl && data.preview_url) {
+                        imgEl.src = data.preview_url;
+                        imgEl.setAttribute('onclick', `openImagePreview('${data.preview_url}')`);
+                    }
+
+                    if (downloadAnchor && data.download_url) {
+                        downloadAnchor.href = data.download_url;
+                    }
+                }
+
+                // Update delivery tick
                 const deliveryTick = messageElement.querySelector('.delivery-tick');
                 if (deliveryTick) {
                     deliveryTick.classList.remove('delivering');
@@ -434,6 +455,7 @@
                     deliveryTick.title = 'Delivered';
                 }
             })
+
             .catch(error => {
                 console.error('Error sending message:', error);
                 if (messageElement && messageElement.parentNode) {
