@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+instance/secure_chat.db
+*.pem
+app/__pycache__
+app/auth/__pycache__
+app/chat/__pycache__
