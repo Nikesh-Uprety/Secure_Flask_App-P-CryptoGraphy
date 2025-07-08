@@ -9,6 +9,7 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 csrf = CSRFProtect()
 
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
@@ -33,12 +34,15 @@ def create_app(config_class=Config):
     # )
     
     # Register blueprints
+    from .main.routes import main_bp
     from .auth.routes import auth_bp
     from .chat.routes import chat_bp
 
+    app.register_blueprint(main_bp)
     app.register_blueprint(auth_bp)
 
     app.register_blueprint(chat_bp)
+
 
     # Create database tables
     with app.app_context():

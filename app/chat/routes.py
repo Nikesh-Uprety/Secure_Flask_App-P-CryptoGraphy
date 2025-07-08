@@ -19,7 +19,7 @@ from app.models import ChatRequest, Message, User
 chat_bp = Blueprint('chat', __name__)
 
 
-@chat_bp.route('/')
+# @chat_bp.route('/')
 @chat_bp.route('/index')
 @login_required
 def index():
