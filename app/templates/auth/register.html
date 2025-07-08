@@ -72,8 +72,8 @@
         <!-- Submit Button -->
         <div class="flex items-center justify-between">
             {{ form.submit(class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded
-            focus:outline-none focus:shadow-outline w-full disabled:bg-gray-400 disabled:cursor-not-allowed",
-            id="submit-button", disabled=True) }}
+            focus:outline-none focus:shadow-outline w-full transition-opacity opacity-100 cursor-pointer",
+            id="submit-button") }}
         </div>
     </form>
 
@@ -121,7 +121,7 @@
             setTimeout(() => {
                 toast.classList.add('hidden');
                 toastContainer.classList.add('hidden');
-            }, 3000);
+            }, 5000);
         }
 
         const evaluatePassword = (password) => {
@@ -143,64 +143,108 @@
             specialCheck.textContent = checks.special ? '✔' : '✘';
             specialCheck.style.color = checks.special ? 'green' : 'red';
 
-            switch (score) {
-                case 0:
-                case 1:
-                    return { strength: 'Weak', color: 'bg-red-500', width: '25%', valid: false };
-                case 2:
-                    return { strength: 'Good', color: 'bg-yellow-500', width: '50%', valid: false };
-                case 3:
-                    return { strength: 'Strong', color: 'bg-green-500', width: '75%', valid: false };
-                case 4:
-                    return { strength: 'Very Strong', color: 'bg-green-700', width: '100%', valid: true };
-            }
+            return {
+                score,
+                valid: checks.length && checks.uppercase && checks.number && checks.special,
+                checks
+            };
         };
 
         const updateStrengthIndicator = () => {
             const password = passwordInput.value;
             const result = evaluatePassword(password);
-            strengthBar.style.width = result.width;
-            strengthBar.className = `h-2.5 rounded-full transition-all duration-300 ${result.color}`;
-            strengthText.textContent = password ? `Password Strength: ${result.strength}` : '';
-            updateSubmitButton();
+
+            let strength = '';
+            let color = '';
+            let width = '';
+
+            switch (result.score) {
+                case 0:
+                case 1:
+                    strength = 'Weak';
+                    color = 'bg-red-500';
+                    width = '25%';
+                    break;
+                case 2:
+                    strength = 'Good';
+                    color = 'bg-yellow-500';
+                    width = '50%';
+                    break;
+                case 3:
+                    strength = 'Strong';
+                    color = 'bg-green-500';
+                    width = '75%';
+                    break;
+                case 4:
+                    strength = 'Very Strong';
+                    color = 'bg-green-700';
+                    width = '100%';
+                    break;
+            }
+
+            strengthBar.style.width = width;
+            strengthBar.className = `h-2.5 rounded-full transition-all duration-300 ${color}`;
+            strengthText.textContent = password ? `Password Strength: ${strength}` : '';
         };
 
         const checkPasswordMatch = () => {
             const password = passwordInput.value;
             const confirmPassword = confirmPasswordInput.value;
             mismatchWarning.classList.toggle('hidden', password === confirmPassword || !confirmPassword);
-            updateSubmitButton();
         };
 
         const updateSubmitButton = () => {
             const password = passwordInput.value;
             const confirmPassword = confirmPasswordInput.value;
             const result = evaluatePassword(password);
-            submitButton.disabled = !(result.valid && password === confirmPassword);
+            const isValid = result.valid && password === confirmPassword;
+
+            if (isValid) {
+                submitButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                submitButton.classList.add('opacity-50', 'cursor-not-allowed');
+            }
         };
 
-        // Real-time validation
         passwordInput.addEventListener('input', () => {
             updateStrengthIndicator();
             checkPasswordMatch();
+            updateSubmitButton();
+            hideToast();
         });
 
-        confirmPasswordInput.addEventListener('input', checkPasswordMatch);
+        confirmPasswordInput.addEventListener('input', () => {
+            checkPasswordMatch();
+            updateSubmitButton();
+            hideToast();
+        });
 
-        // Prevent form submission if password is not valid
+        const hideToast = () => {
+            toast.classList.add('hidden');
+            toastContainer.classList.add('hidden');
+        };
+
         form.addEventListener('submit', (e) => {
             const password = passwordInput.value;
             const confirmPassword = confirmPasswordInput.value;
             const result = evaluatePassword(password);
 
-            if (!(result.valid && password === confirmPassword)) {
+            let failedPolicies = [];
+            if (password.length < 8) failedPolicies.push("at least 8 characters");
+            if (!/[A-Z]/.test(password)) failedPolicies.push("1 uppercase letter");
+            if (!/[0-9]/.test(password)) failedPolicies.push("1 number");
+            if (!/[!@#$%^&*(),.?\":{}|<>]/.test(password)) failedPolicies.push("1 special character");
+            if (password !== confirmPassword) failedPolicies.push("passwords must match");
+
+            if (!result.valid || password !== confirmPassword) {
                 e.preventDefault();
-                showToast('Password requirement not met. Try again.', 'error');
+                const errorMessage = `Password requirements not met:\n- ${failedPolicies.join('\n- ')}`;
+                showToast(errorMessage, 'error');
             }
         });
 
-        // Initial state
         updateStrengthIndicator();
     });
 </script>
+
 {% endblock %}
