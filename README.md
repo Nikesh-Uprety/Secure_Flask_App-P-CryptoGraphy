@@ -46,7 +46,17 @@ secure_chat_app/
 
 ## How It Works
 
+### Faster way to Setup and Run with Docker
+```bash
+docker pull nikesh111/securechat-app:latest
+
+docker run -d -e GEMINI_API_KEY=<your_api_key> -p 5000:5000 --name secure-chat-container nikesh111/securechat-app
+
+```
+
 1. **Setup and Installation**:
+
+  
 
    - Clone: `git clone https://github.com/Nikesh-Uprety/Secure_Flask_App-P-CryptoGraphy.git`
    - Install dependencies: `pip install -r requirements.txt`.
