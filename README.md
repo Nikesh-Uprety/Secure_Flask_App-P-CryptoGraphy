@@ -52,6 +52,10 @@ docker pull nikesh111/securechat-app:latest
 
 docker run -d -e GEMINI_API_KEY=<your_api_key> -p 5000:5000 --name secure-chat-container nikesh111/securechat-app
 
+if you want SSL 'https://' use this 
+
+docker run -d -e USE_SSL=true -e GEMINI_API_KEY=<your_api_key> -p 5000:5000 --name secure-chat-container nikesh111/securechat-app
+
 ```
 
 1. **Setup and Installation**:
