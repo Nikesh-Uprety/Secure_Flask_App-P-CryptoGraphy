@@ -87,16 +87,17 @@
                             </a>
                         </div>
                         {% else %}
-                        <div class="flex items-center space-x-2 p-3 bg-gray-100 rounded-lg border">
-                            <i class="fas fa-file text-xl text-blue-500"></i>
-                            <div class="flex-1 truncate">
-                                <span class="font-medium text-gray-800">{{ message.file_path.split('/')[-1] }}</span>
-                                <a href="{{ url_for('chat.download_file', message_id=message.id) }}?download=1"
-                                    class="text-blue-500 hover:text-blue-700 ml-2 transition-colors">
-                                    <i class="fas fa-download mr-1"></i>Download
-                                </a>
+                        <div class="flex items-center justify-between p-3 bg-gray-100 rounded-lg border">
+                            <div class="flex items-center space-x-2 overflow-hidden">
+                                <i class="fas fa-file text-xl text-blue-500 flex-shrink-0"></i>
+                                <span class="font-medium text-gray-800 truncate">
+                                    {{ message.file_path.split('/')[-1] }}
+                                </span>
                             </div>
-                        </div>
+                            <a href="{{ url_for('chat.download_file', message_id=message.id) }}?download=1"
+                                class="text-blue-500 hover:text-blue-700 ml-4 flex-shrink-0">
+                                <i class="fas fa-download mr-1"></i>Download
+                            </a>                  </div>
                         {% endif %}
                     </div>
                     {% endif %}
@@ -304,6 +305,17 @@
 
     // Add message to UI function
     function addMessageToUI(messageData) {
+
+        function escapeHTML(str) {
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+
         const messageWrapper = document.createElement('div');
         messageWrapper.className = 'flex justify-end message-wrapper';
 
@@ -329,15 +341,17 @@
             } else {
                 fileContent = `
                 <div class="flex items-center space-x-2 p-3 bg-gray-100 rounded-lg border mb-2">
-                    <i class="fas fa-file text-xl text-blue-500"></i>
-                    <div class="flex-1 truncate">
-                        <span class="font-medium text-gray-800">${messageData.filename}</span>
+                <div class="flex items-center space-x-2 overflow-hidden">
+                    <i class="fas fa-file text-xl text-blue-500 flex-shrink-0"></i>
+                    
+                        <span class="font-medium text-gray-800 truncate">${messageData.filename}</span>
+                    </div>
                         <a href="${messageData.download_url || messageData.file_url}" 
-                           class="text-blue-500 hover:text-blue-700 ml-2 transition-colors"
+                           class="text-blue-500 hover:text-blue-700 ml-2 transition-colors flex-shrink-0"
                            download>
                             <i class="fas fa-download mr-1"></i>Download
                         </a>
-                    </div>
+                    
                 </div>
             `;
             }
@@ -352,7 +366,7 @@
         messageWrapper.innerHTML = `
         <div class="max-w-md p-4 rounded-lg shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 text-white message-sent">
             ${fileContent}
-            ${messageData.body ? `<p class="break-words leading-relaxed">${messageData.body}</p>` : ''}
+            ${messageData.body ? `<p class="break-words leading-relaxed">${escapeHTML(messageData.body)}</p>` : ''}
             <div class="mt-2 flex items-center justify-between text-xs text-blue-100">
                 <span class="message-time">${currentTime}</span>
                 <div class="flex items-center space-x-1">
@@ -580,14 +594,16 @@
                                 } else {
                                     fileContent = `
                                         <div class="flex items-center space-x-2 p-3 bg-gray-100 rounded-lg border mb-2">
-                                            <i class="fas fa-file text-xl text-blue-500"></i>
-                                            <div class="flex-1 truncate">
+                                        <div class="flex items-center space-x-2 overflow-hidden">
+                                            <i class="fas fa-file text-xl text-blue-500 flex-shrink-0"></i>
+                                           
                                                 <span class="font-medium text-gray-800">${msg.filename}</span>
+                                                </div>
                                                 <a href="${msg.file_url}?download=1" 
-                                                   class="text-blue-500 hover:text-blue-700 ml-2 transition-colors">
+                                                   class="text-blue-500 hover:text-blue-700 ml-2 transition-colors flex-shrink-0">
                                                     <i class="fas fa-download mr-1"></i>Download
                                                 </a>
-                                            </div>
+                                           
                                         </div>
                                     `;
                                 }
@@ -596,7 +612,7 @@
                             messageDiv.innerHTML = `
                                 <div class="max-w-md p-4 rounded-lg shadow-md bg-white border border-gray-200 message-received">
                                     ${fileContent}
-                                    ${msg.body ? `<p class="break-words leading-relaxed">${msg.body}</p>` : ''}
+                                    ${msg.body ? `<p class="break-words leading-relaxed">${escapeHTML(msg.body)}</p>` : ''}
                                     <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
                                         <span>${new Date(msg.js_timestamp).toLocaleString()}</span>
                                         ${!msg.signature_valid && msg.body ? `

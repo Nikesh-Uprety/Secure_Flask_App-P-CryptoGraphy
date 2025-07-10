@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
-from app import db, login_manager
+from app import db, login_manager, bcrypt
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_bcrypt import Bcrypt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 import base64
 from sqlalchemy import or_, and_
-
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -17,10 +17,8 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(128), nullable=False)
     public_key = db.Column(db.Text, nullable=False)
     private_key = db.Column(db.Text, nullable=False)
-    created_at = db.Column(
-        db.DateTime, default=lambda: datetime.now())
-    last_seen = db.Column(
-        db.DateTime, default=lambda: datetime.now())
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now())
+    last_seen = db.Column(db.DateTime, default=lambda: datetime.now())
 
     # Relationships
     messages_sent = db.relationship('Message',
@@ -63,10 +61,11 @@ class User(UserMixin, db.Model):
         ).decode('utf-8')
 
     def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = bcrypt.generate_password_hash(
+            password).decode('utf-8')
 
     def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+        return bcrypt.check_password_hash(self.password_hash, password)
 
     def get_private_key(self):
         return serialization.load_pem_private_key(
@@ -113,6 +112,7 @@ class User(UserMixin, db.Model):
                 )
             )
         ).first() is not None
+
 
     def get_chat_status_with(self, other_user_id):
         """

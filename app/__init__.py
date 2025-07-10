@@ -4,6 +4,9 @@ from flask_login import LoginManager
 from flask_talisman import Talisman
 from config import Config
 from flask_wtf.csrf import CSRFProtect
+from flask_bcrypt import Bcrypt
+
+bcrypt = Bcrypt()
 
 db = SQLAlchemy()
 login_manager = LoginManager()
@@ -15,6 +18,7 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
 
     csrf.init_app(app)
+    bcrypt.init_app(app)
     
     
     # Initialize extensions

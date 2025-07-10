@@ -1,3 +1,4 @@
+import bleach
 import mimetypes
 import os
 from datetime import datetime, timezone
@@ -65,12 +66,11 @@ def chat(user_id):
                 current_app.logger.info(
                     f"Processing file: {uploaded_file.filename}")
 
-                # ✅ Check for disallowed file types here
                 if not allowed_file(uploaded_file.filename):
                     current_app.logger.warning(
                         f"Disallowed file type: {uploaded_file.filename}")
                     flash(
-                        f"File type not allowed. Allowed types are: png, jpg, jpeg, gif, pdf, doc, docx, txt", 'warning')
+                        'File type not allowed. Allowed types are: png, jpg, jpeg, gif, pdf, doc, docx, txt', 'warning')
                     return redirect(url_for('chat.chat', user_id=user_id))
 
                 filename, file_path = save_file(uploaded_file, current_user.id)
@@ -87,7 +87,15 @@ def chat(user_id):
                     flash('Failed to generate file signature.', 'error')
                     return redirect(url_for('chat.chat', user_id=user_id))
 
-            message_body = form.message.data or ''
+            # Sanitize the message body to prevent XSS
+            raw_msg = form.message.data or ''
+            message_body = bleach.clean(
+                raw_msg,
+                tags=[],  # allow NO tags at all, safest
+                attributes={},
+                strip=True
+            )
+
             recipient_public_key = recipient.get_public_key()
             encrypted_message = encrypt_message(
                 message_body, recipient_public_key) if message_body else ''
@@ -203,8 +211,12 @@ def get_messages(user_id):
             "download_url": url_for('chat.download_file', message_id=msg.id) if msg.is_file else None
         })
 
-    current_app.logger.debug(
-        f"Returning {len(decrypted_messages)} messages for user {user_id}")
+    # current_app.logger.debug(
+    #     f"Returning {len(decrypted_messages)} messages for user '{recipient.username}' (user_id={user_id})")
+    current_app.logger.info(
+        f"[Messages] {current_user.username} is retrieving {len(decrypted_messages)} messages with {recipient.username}")
+
+
     return jsonify(decrypted_messages)
 
 
@@ -295,7 +307,8 @@ def ask_nikugpt():
 
         # Initialize model with latest Gemini 1.5 Flash
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            # model_name="gemini-1.5-flash",
+            model_name="gemini-2.5-flash",
             # model_name="gemini-2.5-pro",
             generation_config=generation_config,
             safety_settings=safety_settings
